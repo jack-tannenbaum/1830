@@ -1,0 +1,101 @@
+import React, { useState } from 'react';
+import { useGameStore } from '../store/gameStore';
+
+interface GameSetupProps {
+  onGameStart: () => void;
+}
+
+export const GameSetup: React.FC<GameSetupProps> = ({ onGameStart }) => {
+  const [playerNames, setPlayerNames] = useState<string[]>(['', '', '', '']);
+  const { initializeGame } = useGameStore();
+
+  const handlePlayerNameChange = (index: number, name: string) => {
+    const newNames = [...playerNames];
+    newNames[index] = name;
+    setPlayerNames(newNames);
+  };
+
+  const addPlayer = () => {
+    if (playerNames.length < 6) {
+      setPlayerNames([...playerNames, '']);
+    }
+  };
+
+  const removePlayer = (index: number) => {
+    if (playerNames.length > 3) {
+      const newNames = playerNames.filter((_, i) => i !== index);
+      setPlayerNames(newNames);
+    }
+  };
+
+  const handleStartGame = () => {
+    const validNames = playerNames.filter(name => name.trim() !== '');
+    if (validNames.length >= 3) {
+      initializeGame(validNames);
+      onGameStart();
+    }
+  };
+
+  const isValidSetup = () => {
+    const validNames = playerNames.filter(name => name.trim() !== '');
+    return validNames.length >= 3 && validNames.length <= 6;
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-900 to-green-700 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-2xl p-8 max-w-md w-full">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-800 mb-2">1830</h1>
+          <p className="text-gray-600">Railways & Robber Barons</p>
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold text-gray-700 mb-4">Player Setup</h2>
+          
+          {playerNames.map((name, index) => (
+            <div key={index} className="flex gap-2">
+              <input
+                type="text"
+                placeholder={`Player ${index + 1} Name`}
+                value={name}
+                onChange={(e) => handlePlayerNameChange(index, e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              />
+              {playerNames.length > 3 && (
+                <button
+                  onClick={() => removePlayer(index)}
+                  className="px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          ))}
+
+          {playerNames.length < 6 && (
+            <button
+              onClick={addPlayer}
+              className="w-full py-2 border-2 border-dashed border-gray-300 text-gray-500 rounded-md hover:border-green-500 hover:text-green-500 transition-colors"
+            >
+              + Add Player
+            </button>
+          )}
+
+          <div className="pt-4">
+            <p className="text-sm text-gray-500 mb-4">
+              3-6 players required. Each player starts with $600.
+            </p>
+            
+            <button
+              onClick={handleStartGame}
+              disabled={!isValidSetup()}
+              className="w-full py-3 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            >
+              Start Game
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
