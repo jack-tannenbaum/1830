@@ -129,8 +129,8 @@ export const lightTheme = {
       background: 'bg-white'
     },
     toggleButton: {
-      stockMarket: 'bg-purple-600 hover:bg-purple-700',
-      railwayMap: 'bg-green-600 hover:bg-green-700'
+      stockMarket: 'bg-[#9333ea] hover:bg-[#7c3aed]', // purple
+      railwayMap: 'bg-[#16a34a] hover:bg-[#15803d]' // green
     }
   },
 

@@ -96,7 +96,9 @@ export interface Corporation {
   treasury: number;
   trains: Train[];
   tokens: MapToken[];
-  availableShares: Certificate[];
+  ipoShares: Certificate[]; // Shares available for purchase from IPO
+  bankShares: Certificate[]; // Shares in bank pool (sold by players)
+  playerShares: Map<string, Certificate[]>; // playerId -> certificates owned
   floated: boolean;
   color: string;
 }

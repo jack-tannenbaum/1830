@@ -25,15 +25,15 @@ export const TRAIN_DATA: Record<TrainType, { cost: number; maxCities: number; qu
   [TrainType.DIESEL]: { cost: 1100, maxCities: 999, quantity: 4 }
 };
 
-export const CORPORATIONS: Omit<Corporation, 'id' | 'presidentId' | 'sharePrice' | 'treasury' | 'trains' | 'tokens' | 'availableShares' | 'floated'>[] = [
+export const CORPORATIONS: Omit<Corporation, 'id' | 'presidentId' | 'sharePrice' | 'treasury' | 'trains' | 'tokens' | 'ipoShares' | 'bankShares' | 'playerShares' | 'floated'>[] = [
   { name: 'Pennsylvania Railroad', abbreviation: 'PRR', parValue: undefined, color: '#008000' },
   { name: 'New York Central', abbreviation: 'NYC', parValue: undefined, color: '#000000' },
+  { name: 'Canadian Pacific', abbreviation: 'CPR', parValue: undefined, color: '#FFA500' },
+  { name: 'Baltimore & Ohio', abbreviation: 'B&O', parValue: undefined, color: '#FF0000' },
   { name: 'Chesapeake & Ohio', abbreviation: 'C&O', parValue: undefined, color: '#0000FF' },
   { name: 'Erie Railroad', abbreviation: 'ERIE', parValue: undefined, color: '#FFFF00' },
-  { name: 'Baltimore & Ohio', abbreviation: 'B&O', parValue: undefined, color: '#FF0000' },
-  { name: 'Canadian Pacific', abbreviation: 'CPR', parValue: undefined, color: '#FFA500' },
-  { name: 'New York, Ontario & Western', abbreviation: 'NYO&W', parValue: undefined, color: '#800080' },
-  { name: 'Lehigh Valley Railroad', abbreviation: 'LV', parValue: undefined, color: '#8B4513' }
+  { name: 'New York, New Haven & Hartford', abbreviation: 'NNH', parValue: undefined, color: '#800080' },
+  { name: 'Boston & Maine', abbreviation: 'B&M', parValue: undefined, color: '#8B4513' }
 ];
 
 export const PRIVATE_COMPANIES: Omit<PrivateCompany, 'id'>[] = [

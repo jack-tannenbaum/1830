@@ -30,8 +30,15 @@ const findParValuePosition = (parValue: number): Point | null => {
   return null;
 };
 
-const generateCorporationShares = (corporationId: string, parValue: number): Certificate[] => {
+const generateInitialIPOShares = (corporationId: string): Certificate[] => {
   const shares: Certificate[] = [];
+  
+  // Generate 1 President's certificate (20%)
+  shares.push({
+    corporationId: corporationId,
+    percentage: 20,
+    isPresident: true
+  });
   
   // Generate 8 regular 10% certificates (80% total)
   for (let i = 0; i < 8; i++) {
@@ -98,7 +105,22 @@ const createInitialState = (): Partial<GameState> => ({
   roundType: RoundType.PRIVATE_AUCTION,
   currentPlayerIndex: 0,
   players: [],
-  corporations: [],
+  corporations: CORPORATIONS.map(corpTemplate => ({
+    id: crypto.randomUUID(),
+    name: corpTemplate.name,
+    abbreviation: corpTemplate.abbreviation,
+    presidentId: undefined,
+    parValue: undefined,
+    sharePrice: 0,
+    treasury: 0,
+    trains: [],
+    tokens: [],
+    ipoShares: generateInitialIPOShares(corpTemplate.abbreviation),
+    bankShares: [],
+    playerShares: new Map(),
+    floated: false,
+    color: corpTemplate.color
+  })),
   stockMarket: {
     tokenPositions: new Map(),
     grid: []
@@ -205,9 +227,28 @@ export const useGameStore = create<GameStore>()(
       auctionComplete: false
     };
 
+    // Initialize corporations with IPO shares
+    const corporations: Corporation[] = CORPORATIONS.map(corpTemplate => ({
+      id: crypto.randomUUID(),
+      name: corpTemplate.name,
+      abbreviation: corpTemplate.abbreviation,
+      presidentId: undefined,
+      parValue: undefined,
+      sharePrice: 0,
+      treasury: 0,
+      trains: [],
+      tokens: [],
+      ipoShares: generateInitialIPOShares(corpTemplate.abbreviation),
+      bankShares: [],
+      playerShares: new Map(),
+      floated: false,
+      color: corpTemplate.color
+    }));
+
     return {
       ...initialState,
       players,
+      corporations, // This should override the empty array from initialState
       auctionState,
       id: crypto.randomUUID()
     };
@@ -313,6 +354,12 @@ export const useGameStore = create<GameStore>()(
       .sort((a, b) => a.currentPrice - b.currentPrice)[0];
     
     if (privateCompany.id === cheapest?.id) return false;
+
+    // Can't bid on cheapest if it's about to be resolved (has bids)
+    if (cheapest) {
+      const cheapestCompanyBids = state.auctionState.playerBids.filter(bid => bid.privateCompanyId === cheapest.id);
+      if (cheapestCompanyBids.length > 0) return false;
+    }
 
     // existingBidOnThisCompany already declared above for cash validation
     
@@ -473,7 +520,7 @@ export const useGameStore = create<GameStore>()(
   addNotification: (notification: Omit<GameState['notifications'][0], 'id' | 'timestamp'>) => {
     // Add to queue with a delay based on current queue length
     const state = get();
-    const queueDelay = state.notifications.length * 600; // 600ms between each notification for better spacing
+    const queueDelay = state.notifications.length * 100; // 100ms between each notification for snappy feel
     
     console.log('Adding notification to queue:', {
       type: notification.type,
@@ -497,7 +544,7 @@ export const useGameStore = create<GameStore>()(
       if (notification.type === 'purchase') {
         setTimeout(() => {
           get().checkAuctionComplete();
-        }, 800); // Longer delay to let the notification appear and fade in
+        }, 100); // Quick delay to let the notification appear
       }
     }, queueDelay);
   },
@@ -606,8 +653,8 @@ export const useGameStore = create<GameStore>()(
     
     if (!player || !corporation) return false;
     
-    // Check if corporation has available shares
-    if (corporation.availableShares.length === 0) return false;
+    // Check if corporation has IPO shares available
+    if (corporation.ipoShares.length === 0) return false;
     
     // Check if player can afford the share
     if (player.cash < corporation.sharePrice) return false;
@@ -617,7 +664,7 @@ export const useGameStore = create<GameStore>()(
     if (player.certificates.length >= certificateLimit) return false;
     
     // Transfer money and certificate
-    const certificate = corporation.availableShares.pop()!;
+    const certificate = corporation.ipoShares.pop()!;
     certificate.corporationId = corporation.id; // Ensure correct ID
     
     set((state) => ({
@@ -628,7 +675,14 @@ export const useGameStore = create<GameStore>()(
       ),
       corporations: state.corporations.map(c => 
         c.id === corporationId 
-          ? { ...c, availableShares: [...c.availableShares] }
+          ? { 
+              ...c, 
+              ipoShares: [...c.ipoShares],
+              playerShares: new Map([
+                ...c.playerShares,
+                [playerId, [...(c.playerShares.get(playerId) || []), certificate]]
+              ])
+            }
           : c
       )
     }));
@@ -650,7 +704,7 @@ export const useGameStore = create<GameStore>()(
     // Calculate total value
     const totalValue = corporation.sharePrice * shares;
     
-    // Remove certificates from player and add to corporation
+    // Remove certificates from player and add to bank pool
     const certsToRemove = playerCerts.slice(0, shares);
     const remainingCerts = player.certificates.filter(cert => 
       !certsToRemove.some(removeCert => 
@@ -668,7 +722,14 @@ export const useGameStore = create<GameStore>()(
       ),
       corporations: state.corporations.map(c => 
         c.id === corporationId 
-          ? { ...c, availableShares: [...c.availableShares, ...certsToRemove] }
+          ? { 
+              ...c, 
+              bankShares: [...c.bankShares, ...certsToRemove],
+              playerShares: new Map([
+                ...c.playerShares,
+                [playerId, remainingCerts.filter(cert => cert.corporationId === corporationId)]
+              ])
+            }
           : c
       )
     }));
@@ -708,7 +769,9 @@ export const useGameStore = create<GameStore>()(
       treasury: 0,
       trains: [],
       tokens: [],
-      availableShares: generateCorporationShares(corpTemplate.abbreviation, parValue),
+      ipoShares: generateInitialIPOShares(corpTemplate.abbreviation),
+      bankShares: [],
+      playerShares: new Map(),
       floated: true,
       color: corpTemplate.color
     };

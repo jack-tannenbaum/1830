@@ -70,3 +70,4 @@ export const BidPopup: React.FC<BidPopupProps> = ({
     </div>
   );
 };
+

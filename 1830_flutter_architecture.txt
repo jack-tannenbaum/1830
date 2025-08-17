@@ -1,0 +1,136 @@
+
+1830-Inspired Flutter App Architecture (Mobile Game)
+
+====================================================
+🧱 OVERALL APP STRUCTURE
+====================================================
+Layers:
+1. Data & Game Logic (Model Layer) — pure Dart classes
+2. State Management Layer — Riverpod, Bloc, or Provider
+3. UI Layer — Flutter Widgets
+
+====================================================
+🧩 DATA MODELS (Dart)
+====================================================
+
+class GameState {
+  final int phase;
+  final RoundType roundType;
+  final int currentPlayerIndex;
+  final List<Player> players;
+  final List<Corporation> corporations;
+  final StockMarket stockMarket;
+  final Bank bank;
+  final GameMap map;
+  final Map<TrainType, int> trainSupply;
+}
+
+enum RoundType { stock, operating }
+
+class Player {
+  final String name;
+  int cash;
+  final List<Certificate> certificates;
+  final List<PrivateCompany> privateCompanies;
+}
+
+class Corporation {
+  final String name;
+  final String abbreviation;
+  String? presidentId;
+  int? parValue;
+  int sharePrice;
+  int treasury;
+  final List<Train> trains;
+  final List<MapToken> tokens;
+  final List<Certificate> availableShares;
+  bool floated;
+}
+
+class Certificate {
+  final String corporationId;
+  final int percentage; // 10 or 20
+  final bool isPresident;
+}
+
+class PrivateCompany {
+  final String name;
+  final int cost;
+  final int revenue;
+  final PrivateCompanyEffect? effect;
+}
+
+enum TrainType { two, three, four, five, six, diesel }
+
+extension TrainTypeX on TrainType {
+  int get maxCities => this == TrainType.diesel ? 999 : index + 2;
+}
+
+class Train {
+  final TrainType type;
+  final int cost;
+}
+
+enum HexType { empty, city, offBoard, mountain, river }
+
+class MapHex {
+  final String id;
+  final HexType type;
+  final Tile? tile;
+  final int terrainCost;
+}
+
+class Tile {
+  final String id;
+  final TileColor color;
+  final int cityCount;
+  final List<String> connections;
+}
+
+class StockMarket {
+  final Map<String, Point<int>> tokenPositions; // corpID -> (x, y)
+  final List<List<int?>> grid;
+}
+
+====================================================
+🧠 STATE MANAGEMENT (Riverpod)
+====================================================
+
+final gameStateProvider = StateNotifierProvider<GameStateNotifier, GameState>((ref) {
+  return GameStateNotifier();
+});
+
+// Add methods like nextPhase(), runOperatingRound(), buyCertificate() etc.
+
+====================================================
+🖼 UI WIDGETS TO BUILD
+====================================================
+
+- HexMapView          → zoomable board with hex tiles
+- StockMarketView     → interactive stock grid
+- PlayerDashboardView → cash, certificates, companies
+- CorporationView     → treasury, trains, tokens, shares
+- TrainRunnerWidget   → route builder and revenue display
+
+====================================================
+🛠 DEV FLOW (IN VIBE MODE)
+====================================================
+
+- Start with hardcoded game setup
+- Make local pass-and-play MVP
+- Begin with core game loop and engine
+- Hex map can be mocked, then layered with interactions
+- Slowly implement rule logic into model layer
+- Use AI or DartPad to test snippets
+
+====================================================
+📁 FILE STRUCTURE
+====================================================
+
+/lib
+  /models       ← Dart data classes
+  /engine       ← Game logic & turn reducers
+  /providers    ← Riverpod/Bloc state managers
+  /views        ← Flutter widgets for map, players, stock, etc.
+  main.dart     ← Game launcher
+

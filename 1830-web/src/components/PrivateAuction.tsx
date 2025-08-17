@@ -7,6 +7,7 @@ export const PrivateAuction: React.FC = () => {
     auctionState, 
     players, 
     bank,
+    notifications,
     buyCheapestPrivate,
     bidOnPrivate, 
     passPrivateAuction,
@@ -16,6 +17,32 @@ export const PrivateAuction: React.FC = () => {
   
   const colors = useColors();
   const [bidAmounts, setBidAmounts] = useState<{ [key: string]: number }>({});
+
+  // Check if a company is in the resolution chain (will be resolved next)
+  const isCompanyInResolutionChain = (companyId: string) => {
+    if (!auctionState) return false;
+    
+    // Get all unowned companies sorted by price
+    const unownedCompanies = auctionState.privateCompanies
+      .filter(pc => !pc.isOwned)
+      .sort((a, b) => a.currentPrice - b.currentPrice);
+    
+    // Find the cheapest company
+    const cheapestCompany = unownedCompanies[0];
+    if (!cheapestCompany) return false;
+    
+    // Get bids for the cheapest company
+    const cheapestCompanyBids = auctionState.playerBids.filter(bid => bid.privateCompanyId === cheapestCompany.id);
+    
+    // If the cheapest company has exactly 1 bid, it will be resolved
+    // If it has multiple bids, it will go to bid-off
+    // In either case, no one should bid on it
+    if (cheapestCompany.id === companyId && cheapestCompanyBids.length > 0) {
+      return true;
+    }
+    
+    return false;
+  };
 
   if (!auctionState) {
     return <div>No auction in progress</div>;
@@ -239,8 +266,8 @@ export const PrivateAuction: React.FC = () => {
                     /* Buy Button for Cheapest */
                     <button
                       onClick={handleBuyCheapest}
-                      disabled={!canBuyCheapest()}
-                      className={`w-full py-2 ${colors.button.success} font-semibold rounded-md disabled:${colors.button.disabled}`}
+                      disabled={!canBuyCheapest() || isCompanyInResolutionChain(cheapestPrivate?.id || '')}
+                      className={`w-full py-2 ${colors.button.success} font-semibold rounded-md ${(!canBuyCheapest() || isCompanyInResolutionChain(cheapestPrivate?.id || '')) ? colors.button.disabled : ''}`}
                     >
                       Buy ${privateCompany.currentPrice}
                     </button>
@@ -250,8 +277,8 @@ export const PrivateAuction: React.FC = () => {
                       <div className="flex items-center gap-1 mb-2">
                         <button
                           onClick={() => adjustBid(privateCompany.id, -5)}
-                          disabled={currentBidAmount <= minBid}
-                          className={`w-8 h-8 ${colors.button.primary} rounded disabled:${colors.button.disabled}`}
+                          disabled={currentBidAmount <= minBid || isCompanyInResolutionChain(privateCompany.id)}
+                          className={`w-8 h-8 ${colors.button.primary} rounded ${(currentBidAmount <= minBid || isCompanyInResolutionChain(privateCompany.id)) ? colors.button.disabled : ''}`}
                         >
                           -
                         </button>
@@ -266,16 +293,16 @@ export const PrivateAuction: React.FC = () => {
                         </div>
                         <button
                           onClick={() => adjustBid(privateCompany.id, 5)}
-                          disabled={getAvailableCash(currentPlayer?.id || '') < currentBidAmount + 5}
-                          className={`w-8 h-8 ${colors.button.primary} rounded disabled:${colors.button.disabled}`}
+                          disabled={getAvailableCash(currentPlayer?.id || '') < currentBidAmount + 5 || isCompanyInResolutionChain(privateCompany.id)}
+                          className={`w-8 h-8 ${colors.button.primary} rounded ${(getAvailableCash(currentPlayer?.id || '') < currentBidAmount + 5 || isCompanyInResolutionChain(privateCompany.id)) ? colors.button.disabled : ''}`}
                         >
                           +
                         </button>
                       </div>
                       <button
                         onClick={() => handleBidOnCompany(privateCompany.id)}
-                        disabled={!canBidOnCompany(privateCompany.id)}
-                        className={`w-full py-2 font-semibold rounded-md ${colors.button.warning} ${colors.button.disabled}`}
+                        disabled={!canBidOnCompany(privateCompany.id) || isCompanyInResolutionChain(privateCompany.id)}
+                        className={`w-full py-2 font-semibold rounded-md ${colors.button.warning} ${(!canBidOnCompany(privateCompany.id) || isCompanyInResolutionChain(privateCompany.id)) ? colors.button.disabled : ''}`}
                       >
                         Bid ${currentBidAmount}
                       </button>

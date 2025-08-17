@@ -6,7 +6,7 @@ import { AuctionSummary } from './AuctionSummary';
 import { NotificationPopup } from './NotificationPopup';
 import { useColors } from '../styles/colors';
 import { useThemeStore } from '../store/themeStore';
-import { StockRound } from './StockRound';
+import StockRound from './StockRound';
 
 export const GameBoard: React.FC = () => {
   const { 
@@ -75,6 +75,18 @@ export const GameBoard: React.FC = () => {
                 </button>
                 
                 <button
+                  onClick={() => setGameState({ roundType: RoundType.OPERATING })}
+                  className={`px-3 py-2 rounded-lg transition-colors duration-300 ${
+                    roundType === RoundType.OPERATING 
+                      ? 'bg-green-600 hover:bg-green-700 text-white' 
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  }`}
+                  title="Start Operating Round (Debug)"
+                >
+                  🏭 Operating
+                </button>
+                
+                <button
                   onClick={() => setGameState({ roundType: RoundType.PRIVATE_AUCTION })}
                   className={`px-3 py-2 rounded-lg transition-colors duration-300 ${
                     roundType === RoundType.PRIVATE_AUCTION 
@@ -108,6 +120,8 @@ export const GameBoard: React.FC = () => {
           
           {/* Main Game Area */}
           <div className="lg:col-span-3">
+
+            
             {roundType === RoundType.PRIVATE_AUCTION ? (
               <PrivateAuction />
             ) : roundType === RoundType.AUCTION_SUMMARY ? (
