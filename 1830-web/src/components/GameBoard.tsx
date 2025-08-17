@@ -2,8 +2,9 @@ import React from 'react';
 import { useGameStore } from '../store/gameStore';
 import { RoundType } from '../types/game';
 import { PrivateAuction } from './PrivateAuction';
-import { PrivateResolution } from './PrivateResolution';
 import { AuctionSummary } from './AuctionSummary';
+import { NotificationPopup } from './NotificationPopup';
+import { colors } from '../styles/colors';
 
 export const GameBoard: React.FC = () => {
   const { 
@@ -11,23 +12,24 @@ export const GameBoard: React.FC = () => {
     corporations, 
     phase, 
     roundType, 
-    currentPlayerIndex
+    currentPlayerIndex,
+    notifications,
+    closeNotification
   } = useGameStore();
 
   const currentPlayer = players[currentPlayerIndex];
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className={`min-h-screen ${colors.layout.background}`}>
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className={`${colors.layout.header.background} shadow-sm ${colors.layout.header.border}`}>
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">1830: Railways & Robber Barons</h1>
-              <p className="text-gray-600">
+              <h1 className={`text-2xl font-bold ${colors.layout.header.title}`}>1830: Railways & Robber Barons</h1>
+              <p className={colors.layout.header.subtitle}>
                 Phase {phase} • {
                   roundType === RoundType.PRIVATE_AUCTION ? 'Private Company Auction' :
-                  roundType === RoundType.PRIVATE_RESOLUTION ? 'Resolving Private Companies' :
                   roundType === RoundType.AUCTION_SUMMARY ? 'Auction Summary' :
                   roundType === RoundType.STOCK ? 'Stock Round' : 'Operating Round'
                 }
@@ -36,9 +38,9 @@ export const GameBoard: React.FC = () => {
             
             {currentPlayer && (
               <div className="text-right">
-                <p className="text-sm text-gray-600">Current Player</p>
-                <p className="text-lg font-semibold text-green-600">{currentPlayer.name}</p>
-                <p className="text-sm text-gray-500">${currentPlayer.cash}</p>
+                <p className={`text-sm ${colors.text.secondary}`}>Current Player</p>
+                <p className={`text-lg font-semibold ${colors.text.success}`}>{currentPlayer.name}</p>
+                <p className={`text-sm ${colors.text.tertiary}`}>${currentPlayer.cash}</p>
               </div>
             )}
           </div>
@@ -52,17 +54,15 @@ export const GameBoard: React.FC = () => {
           <div className="lg:col-span-3">
             {roundType === RoundType.PRIVATE_AUCTION ? (
               <PrivateAuction />
-            ) : roundType === RoundType.PRIVATE_RESOLUTION ? (
-              <PrivateResolution />
             ) : roundType === RoundType.AUCTION_SUMMARY ? (
               <AuctionSummary />
             ) : (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-semibold mb-4">Game Board</h2>
+              <div className={`${colors.card.background} rounded-lg ${colors.card.shadow} p-6`}>
+                <h2 className={`text-xl font-semibold mb-4 ${colors.text.primary}`}>Game Board</h2>
                 
                 {/* Placeholder for hex map */}
-                <div className="aspect-video bg-green-100 rounded-lg border-2 border-dashed border-green-300 flex items-center justify-center">
-                  <div className="text-center text-green-600">
+                <div className={`aspect-video ${colors.gameBoard.map.background} rounded-lg border-2 border-dashed ${colors.gameBoard.map.border} flex items-center justify-center`}>
+                  <div className={`text-center ${colors.gameBoard.map.text}`}>
                     <div className="text-4xl mb-2">🚂</div>
                     <p className="text-lg font-medium">Railway Map</p>
                     <p className="text-sm">Hex map will be implemented here</p>
@@ -71,8 +71,8 @@ export const GameBoard: React.FC = () => {
                 
                 {/* Stock Market */}
                 <div className="mt-6">
-                  <h3 className="text-lg font-semibold mb-3">Stock Market</h3>
-                  <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className={`text-lg font-semibold mb-3 ${colors.text.primary}`}>Stock Market</h3>
+                  <div className={`${colors.gameBoard.stockMarket.background} p-4 rounded-lg`}>
                     <div className="grid grid-cols-11 gap-1 text-xs">
                       {Array.from({ length: 10 }, (_, row) => 
                         Array.from({ length: 11 }, (_, col) => (
@@ -95,8 +95,8 @@ export const GameBoard: React.FC = () => {
           <div className="space-y-6">
             
             {/* Players */}
-            <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="text-lg font-semibold mb-3">Players</h3>
+            <div className={`${colors.card.background} rounded-lg ${colors.card.shadow} p-4`}>
+              <h3 className={`text-lg font-semibold mb-3 ${colors.text.primary}`}>Players</h3>
               <div className="space-y-3">
                 {players.map((player, index) => (
                   <div 
@@ -108,23 +108,23 @@ export const GameBoard: React.FC = () => {
                     }`}
                   >
                     <div className="flex justify-between items-center mb-2">
-                      <span className="font-medium">{player.name}</span>
-                      <span className="text-green-600 font-semibold">${player.cash}</span>
+                      <span className={`font-medium ${colors.player.name}`}>{player.name}</span>
+                      <span className={`${colors.player.cash} font-semibold`}>${player.cash}</span>
                     </div>
                     
-                    <div className="text-xs text-gray-500 mb-2">
+                    <div className={`text-xs mb-2 ${colors.text.tertiary}`}>
                       {player.certificates.length} certificates
                     </div>
                     
                     {/* Private Companies */}
                     {player.privateCompanies.length > 0 && (
                       <div className="mt-2">
-                        <div className="text-xs font-medium text-blue-600 mb-1">Private Companies:</div>
+                        <div className={`text-xs font-medium ${colors.private.name} mb-1`}>Private Companies:</div>
                         <div className="space-y-1">
                           {player.privateCompanies.map((privateCompany) => (
-                            <div key={privateCompany.id} className="text-xs bg-blue-50 border border-blue-200 rounded px-2 py-1">
-                              <div className="font-medium text-blue-800">{privateCompany.name}</div>
-                              <div className="text-blue-600">Bought for ${privateCompany.purchasePrice}</div>
+                            <div key={privateCompany.id} className={`text-xs ${colors.auction.bidInput.background} ${colors.auction.bidInput.border} rounded px-2 py-1`}>
+                              <div className={`font-medium ${colors.private.name}`}>{privateCompany.name}</div>
+                              <div className={colors.private.name}>Bought for ${privateCompany.purchasePrice}</div>
                             </div>
                           ))}
                         </div>
@@ -136,14 +136,14 @@ export const GameBoard: React.FC = () => {
             </div>
 
             {/* Corporations */}
-            <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="text-lg font-semibold mb-3">Corporations</h3>
+            <div className={`${colors.card.background} rounded-lg ${colors.card.shadow} p-4`}>
+              <h3 className={`text-lg font-semibold mb-3 ${colors.text.primary}`}>Corporations</h3>
               {corporations.length === 0 ? (
-                <p className="text-gray-500 text-sm">No corporations floated yet</p>
+                <p className={`${colors.text.tertiary} text-sm`}>No corporations floated yet</p>
               ) : (
                 <div className="space-y-2">
                   {corporations.map((corp) => (
-                    <div key={corp.id} className="p-2 border rounded">
+                    <div key={corp.id} className={`p-2 ${colors.corporation.border} rounded`}>
                       <div className="flex items-center gap-2">
                         <div 
                           className="corporation-token"
@@ -152,8 +152,8 @@ export const GameBoard: React.FC = () => {
                           {corp.abbreviation}
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-sm">{corp.name}</p>
-                          <p className="text-xs text-gray-500">${corp.sharePrice}</p>
+                          <p className={`font-medium text-sm ${colors.corporation.name}`}>{corp.name}</p>
+                          <p className={`text-xs ${colors.corporation.price}`}>${corp.sharePrice}</p>
                         </div>
                       </div>
                     </div>
@@ -164,19 +164,19 @@ export const GameBoard: React.FC = () => {
 
             {/* Game Actions - Only show during Stock Round */}
             {roundType === RoundType.STOCK && (
-              <div className="bg-white rounded-lg shadow p-4">
-                <h3 className="text-lg font-semibold mb-3">Stock Actions</h3>
+              <div className={`${colors.card.background} rounded-lg ${colors.card.shadow} p-4`}>
+                <h3 className={`text-lg font-semibold mb-3 ${colors.text.primary}`}>Stock Actions</h3>
                 <div className="space-y-2">
-                  <button className="w-full py-2 px-3 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm">
+                  <button className={`w-full py-2 px-3 ${colors.button.primary} rounded transition-colors text-sm`}>
                     Buy Certificate
                   </button>
-                  <button className="w-full py-2 px-3 bg-red-500 text-white rounded hover:bg-red-600 transition-colors text-sm">
+                  <button className={`w-full py-2 px-3 ${colors.button.danger} rounded transition-colors text-sm`}>
                     Sell Certificate
                   </button>
-                  <button className="w-full py-2 px-3 bg-green-500 text-white rounded hover:bg-green-600 transition-colors text-sm">
+                  <button className={`w-full py-2 px-3 ${colors.button.success} rounded transition-colors text-sm`}>
                     Buy President's Certificate
                   </button>
-                  <button className="w-full py-2 px-3 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors text-sm">
+                  <button className={`w-full py-2 px-3 ${colors.button.secondary} rounded transition-colors text-sm`}>
                     Pass
                   </button>
                 </div>
@@ -185,6 +185,22 @@ export const GameBoard: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      {/* Notifications Stack */}
+      {notifications
+        .sort((a, b) => a.timestamp - b.timestamp) // Sort by timestamp for proper stacking
+        .map((notification, index) => (
+          <NotificationPopup
+            key={notification.id}
+            id={notification.id}
+            title={notification.title}
+            message={notification.message}
+            type={notification.type}
+            onClose={() => closeNotification(notification.id)}
+            index={index}
+            duration={notification.duration}
+          />
+        ))}
     </div>
   );
 };

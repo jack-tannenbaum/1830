@@ -30,10 +30,11 @@ interface GameStore extends GameState {
   bidOffBid: (playerId: string, amount: number) => boolean;
   bidOffPass: (playerId: string) => boolean;
   
-  // Auction resolution
-  startPrivateResolution: () => void;
-  resolveNextCompany: () => void;
-  moveToNextCompany: () => void;
+  // Notifications
+  closeNotification: (notificationId: string) => void;
+  addNotification: (notification: Omit<GameState['notifications'][0], 'id' | 'timestamp'>) => void;
+  
+
   continueToStockRound: () => void;
   
   // Auction summary
@@ -66,6 +67,7 @@ const createInitialState = (): Partial<GameState> => ({
     tiles: new Map()
   },
   trainSupply: new Map(),
+  notifications: [],
   history: []
 });
 
@@ -217,7 +219,8 @@ export const useGameStore = create<GameStore>()(
           ),
           currentPlayerIndex: (state.auctionState!.currentPlayerIndex + 1) % state.auctionState!.playerTurnOrder.length,
           consecutivePasses: 0
-        }
+        },
+        // Notification will be added via queue
       };
     });
 
@@ -227,7 +230,15 @@ export const useGameStore = create<GameStore>()(
       data: { privateCompanyId: cheapest.id, amount: cheapest.currentPrice }
     });
 
-    get().checkAuctionComplete();
+    // Add notification via queue
+    get().addNotification({
+      title: privateCompany.name,
+      message: `Purchased by ${player.name} for $${cheapest.currentPrice}`,
+      type: 'purchase',
+      duration: 4000
+    });
+
+    // Don't check auction complete here - let the notification queue handle timing
     return true;
   },
 
@@ -237,8 +248,9 @@ export const useGameStore = create<GameStore>()(
     
     const player = state.players.find(p => p.id === playerId);
     const privateCompany = state.auctionState.privateCompanies.find(pc => pc.id === privateCompanyId);
+    const privateCompanyData = state.bank.privateCompanies.find(pc => pc.id === privateCompanyId);
     
-    if (!player || !privateCompany || privateCompany.isOwned) return false;
+    if (!player || !privateCompany || !privateCompanyData || privateCompany.isOwned) return false;
     
     // Check available cash using the same logic as UI (use lockedMoney map)
     const currentLockedAmount = state.auctionState.lockedMoney.get(playerId) || 0;
@@ -282,13 +294,22 @@ export const useGameStore = create<GameStore>()(
         lockedMoney: newLockedMoney,
         currentPlayerIndex: (state.auctionState!.currentPlayerIndex + 1) % state.auctionState!.playerTurnOrder.length,
         consecutivePasses: 0
-      }
+      },
+      // Notification will be added via queue
     }));
 
     get().addAction({
       type: ActionType.BID_ON_PRIVATE,
       playerId,
       data: { privateCompanyId, amount }
+    });
+
+    // Add notification via queue
+    get().addNotification({
+      title: privateCompanyData.name,
+      message: `${player.name} bid $${amount}`,
+      type: 'bid',
+      duration: 3000
     });
 
     return true;
@@ -397,116 +418,45 @@ export const useGameStore = create<GameStore>()(
     return { results };
   },
 
-  startPrivateResolution: () => {
-    const state = get();
-    if (!state.auctionState) return;
-    
-    // Get all companies that have bids (these need resolution)
-    const companiesWithBids = state.auctionState!.privateCompanies.filter(pc => {
-      const bids = state.auctionState!.playerBids.filter(bid => bid.privateCompanyId === pc.id);
-      return bids.length > 0;
-    });
-    
-    console.log('startPrivateResolution:', {
-      companiesWithBids: companiesWithBids.map(pc => ({ id: pc.id, price: pc.currentPrice })),
-      allBids: state.auctionState!.playerBids.map(bid => ({ companyId: bid.privateCompanyId, playerId: bid.playerId, amount: bid.amount }))
-    });
-    
-    if (companiesWithBids.length > 0) {
-      console.log('Starting resolution for companies with bids');
-      // Sort by price and start with the cheapest
-      const nextCompany = companiesWithBids.sort((a, b) => a.currentPrice - b.currentPrice)[0];
-      set((state) => ({
-        roundType: RoundType.PRIVATE_RESOLUTION,
-        resolvingCompanyId: nextCompany.id
-      }));
-    } else {
-      console.log('No companies with bids, going to summary');
-      // No companies have bids, go directly to summary
-      const summary = get().createAuctionSummary();
-      set((state) => ({
-        roundType: RoundType.AUCTION_SUMMARY,
-        auctionState: undefined,
-        auctionSummary: summary,
-        resolvingCompanyId: undefined
-      }));
-    }
+  closeNotification: (notificationId: string) => {
+    set((state) => ({
+      notifications: state.notifications.filter(notification => notification.id !== notificationId)
+    }));
   },
 
-  resolveNextCompany: () => {
+  addNotification: (notification: Omit<GameState['notifications'][0], 'id' | 'timestamp'>) => {
+    // Add to queue with a delay based on current queue length
     const state = get();
-    if (!state.resolvingCompanyId) return;
-
-    const company = state.auctionState?.privateCompanies.find(pc => pc.id === state.resolvingCompanyId);
-    if (!company) return;
-
-    const bids = state.auctionState?.playerBids.filter(bid => bid.privateCompanyId === state.resolvingCompanyId) || [];
+    const queueDelay = state.notifications.length * 600; // 600ms between each notification for better spacing
     
-    if (bids.length === 0) {
-      // No bids, company remains unsold
-      get().moveToNextCompany();
-    } else if (bids.length === 1) {
-      // Single bid, player buys it
-      const winningBid = bids[0];
-      const player = state.players.find(p => p.id === winningBid.playerId);
-      const privateCompany = state.bank.privateCompanies.find(pc => pc.id === state.resolvingCompanyId);
+    console.log('Adding notification to queue:', {
+      type: notification.type,
+      queueDelay,
+      currentNotifications: state.notifications.length
+    });
+    
+    setTimeout(() => {
+      set((state) => ({
+        notifications: [...state.notifications, {
+          ...notification,
+          id: crypto.randomUUID(),
+          timestamp: Date.now()
+        }]
+      }));
       
-      if (player && privateCompany) {
-        const ownedCompany: OwnedPrivateCompany = {
-          ...privateCompany,
-          purchasePrice: winningBid.amount
-        };
-        player.privateCompanies.push(ownedCompany);
-        player.cash -= winningBid.amount;
-        
-        // Update auction state
-        set((state) => ({
-          auctionState: {
-            ...state.auctionState!,
-            playerBids: state.auctionState!.playerBids.filter(bid => bid.privateCompanyId !== state.resolvingCompanyId),
-            privateCompanies: state.auctionState!.privateCompanies.map(pc => 
-              pc.id === state.resolvingCompanyId ? { ...pc, isOwned: true, ownerId: winningBid.playerId } : pc
-            )
-          }
-        }));
-        
-        get().moveToNextCompany();
+      console.log('Notification added to state:', notification.type);
+      
+      // After adding the notification, check if we should continue the auction
+      // Only do this for purchase notifications, not bid notifications
+      if (notification.type === 'purchase') {
+        setTimeout(() => {
+          get().checkAuctionComplete();
+        }, 800); // Longer delay to let the notification appear and fade in
       }
-    } else {
-      // Multiple bids, start bid-off
-      const highestBidAmount = Math.max(...bids.map(bid => bid.amount));
-      const allBidderIds = bids.map(bid => bid.playerId);
-      get().startBidOff(state.resolvingCompanyId, allBidderIds, highestBidAmount);
-    }
+    }, queueDelay);
   },
 
-  moveToNextCompany: () => {
-    const state = get();
-    if (!state.auctionState) return;
-    
-    // Get remaining companies that have bids (these still need resolution)
-    const remainingCompaniesWithBids = state.auctionState.privateCompanies.filter(pc => {
-      const bids = state.auctionState!.playerBids.filter(bid => bid.privateCompanyId === pc.id);
-      return bids.length > 0;
-    });
-    
-    if (remainingCompaniesWithBids.length === 0) {
-      // All companies resolved, create summary
-      const summary = get().createAuctionSummary();
-      set((state) => ({
-        roundType: RoundType.AUCTION_SUMMARY,
-        auctionState: undefined,
-        auctionSummary: summary,
-        resolvingCompanyId: undefined
-      }));
-    } else {
-      // Move to next company
-      const nextCompany = remainingCompaniesWithBids.sort((a, b) => a.currentPrice - b.currentPrice)[0];
-      set((state) => ({
-        resolvingCompanyId: nextCompany.id
-      }));
-    }
-  },
+
 
   continueToStockRound: () => {
     set((state) => ({
@@ -521,103 +471,85 @@ export const useGameStore = create<GameStore>()(
     const state = get();
     if (!state.auctionState) return;
 
-    // Check if there are any companies with bids that need resolution
-    const companiesWithBids = state.auctionState!.privateCompanies.filter(pc => {
-      const bids = state.auctionState!.playerBids.filter(bid => bid.privateCompanyId === pc.id);
-      return bids.length > 0;
-    });
+    // Check if all companies are sold
+    const remainingCompanies = state.auctionState.privateCompanies.filter(pc => !pc.isOwned);
     
-    console.log('checkAuctionComplete:', {
-      companiesWithBids: companiesWithBids.map(pc => ({ id: pc.id, price: pc.currentPrice, isOwned: pc.isOwned })),
-      allBids: state.auctionState!.playerBids.map(bid => ({ companyId: bid.privateCompanyId, playerId: bid.playerId, amount: bid.amount }))
-    });
-    
-    if (companiesWithBids.length === 0) {
-      console.log('No companies with bids, starting resolution process');
-      // No companies have bids, start resolution process (which will go to summary)
-      get().startPrivateResolution();
+    if (remainingCompanies.length === 0) {
+      // All companies sold, create summary and move to summary round
+      const summary = get().createAuctionSummary();
+      set((state) => ({
+        roundType: RoundType.AUCTION_SUMMARY,
+        auctionState: undefined,
+        auctionSummary: summary,
+        resolvingCompanyId: undefined
+      }));
       return;
-    }
-    
-    // Check if the cheapest company has bids - if not, we need to resolve other companies
-    const cheapestCompany = state.auctionState!.privateCompanies
-      .filter(pc => !pc.isOwned)
-      .sort((a, b) => a.currentPrice - b.currentPrice)[0];
-    
-    if (cheapestCompany) {
-      const cheapestCompanyBids = state.auctionState!.playerBids.filter(bid => bid.privateCompanyId === cheapestCompany.id);
-      
-      // If cheapest company has no bids but other companies do, we need to resolve those other companies
-      if (cheapestCompanyBids.length === 0 && companiesWithBids.length > 0) {
-        console.log('Cheapest company has no bids but other companies do, starting resolution');
-        get().startPrivateResolution();
-        return;
-      }
     }
 
     // Check the cheapest unowned company for resolution
-    const allCompanies = state.auctionState.privateCompanies;
-    const cheapestUnownedCompany = allCompanies
-      .filter(pc => !pc.isOwned)
-      .sort((a, b) => a.currentPrice - b.currentPrice)[0];
+    const cheapestCompany = remainingCompanies.sort((a, b) => a.currentPrice - b.currentPrice)[0];
+    const cheapestCompanyBids = state.auctionState.playerBids.filter(bid => bid.privateCompanyId === cheapestCompany.id);
     
-    if (cheapestUnownedCompany) {
-      const cheapestCompanyBids = state.auctionState.playerBids.filter(bid => bid.privateCompanyId === cheapestUnownedCompany.id);
+    // If cheapest company has no bids, players can continue bidding
+    if (cheapestCompanyBids.length === 0) {
+      return;
+    }
+    
+    // If cheapest company has exactly 1 bid, that player buys it
+    if (cheapestCompanyBids.length === 1) {
+      const winningBid = cheapestCompanyBids[0];
+      const player = state.players.find(p => p.id === winningBid.playerId);
+      const privateCompany = state.bank.privateCompanies.find(pc => pc.id === cheapestCompany.id);
       
-      // If cheapest company has no bids, players can continue bidding on any company
-      if (cheapestCompanyBids.length === 0) {
-        return;
-      }
-      
-      // If cheapest company has exactly 1 bid, that player buys it
-      if (cheapestCompanyBids.length === 1) {
-        const winningBid = cheapestCompanyBids[0];
-        const player = state.players.find(p => p.id === winningBid.playerId);
-        const privateCompany = state.bank.privateCompanies.find(pc => pc.id === cheapestUnownedCompany.id);
+      if (player && privateCompany) {
+        // Award the company to the player
+        const ownedCompany: OwnedPrivateCompany = {
+          ...privateCompany,
+          purchasePrice: winningBid.amount
+        };
+        player.privateCompanies.push(ownedCompany);
+        player.cash -= winningBid.amount;
         
-                 if (player && privateCompany) {
-           // Award the company to the player
-           const ownedCompany: OwnedPrivateCompany = {
-             ...privateCompany,
-             purchasePrice: winningBid.amount
-           };
-           player.privateCompanies.push(ownedCompany);
-          player.cash -= winningBid.amount;
-          
-          // Remove the bid and locked money
-          set((state) => ({
-            auctionState: {
-              ...state.auctionState!,
-              playerBids: state.auctionState!.playerBids.filter(bid => bid.privateCompanyId !== cheapestUnownedCompany.id),
-              lockedMoney: new Map([...state.auctionState!.lockedMoney].filter(([playerId]) => 
-                state.auctionState!.playerBids.some(bid => bid.playerId === playerId && bid.privateCompanyId !== cheapestUnownedCompany.id)
-              ))
-            }
-          }));
-          
-          // Mark the company as owned
-          set((state) => ({
-            auctionState: {
-              ...state.auctionState!,
-              privateCompanies: state.auctionState!.privateCompanies.map(pc => 
-                pc.id === cheapestUnownedCompany.id ? { ...pc, isOwned: true, ownerId: winningBid.playerId } : pc
-              )
-            }
-          }));
-          
-          // Check if auction is complete
-          get().checkAuctionComplete();
-          return;
-        }
-      }
-      
-      // If cheapest company has multiple bids, start bid-off
-      if (cheapestCompanyBids.length > 1) {
-        const highestBidAmount = Math.max(...cheapestCompanyBids.map(bid => bid.amount));
-        const allBidderIds = cheapestCompanyBids.map(bid => bid.playerId);
-        get().startBidOff(cheapestUnownedCompany.id, allBidderIds, highestBidAmount);
+        // Show purchase notification via queue
+        get().addNotification({
+          title: privateCompany.name,
+          message: `Purchased by ${player.name} for $${winningBid.amount}`,
+          type: 'purchase',
+          duration: 4000
+        });
+        
+        // Remove the bid and locked money
+        set((state) => ({
+          auctionState: {
+            ...state.auctionState!,
+            playerBids: state.auctionState!.playerBids.filter(bid => bid.privateCompanyId !== cheapestCompany.id),
+            lockedMoney: new Map([...state.auctionState!.lockedMoney].filter(([playerId]) => 
+              state.auctionState!.playerBids.some(bid => bid.playerId === playerId && bid.privateCompanyId !== cheapestCompany.id)
+            ))
+          }
+        }));
+        
+        // Mark the company as owned
+        set((state) => ({
+          auctionState: {
+            ...state.auctionState!,
+            privateCompanies: state.auctionState!.privateCompanies.map(pc => 
+              pc.id === cheapestCompany.id ? { ...pc, isOwned: true, ownerId: winningBid.playerId } : pc
+            )
+          }
+        }));
+        
+        // Don't check auction complete here - let the notification queue handle timing
         return;
       }
+    }
+    
+    // If cheapest company has multiple bids, start bid-off
+    if (cheapestCompanyBids.length > 1) {
+      const highestBidAmount = Math.max(...cheapestCompanyBids.map(bid => bid.amount));
+      const allBidderIds = cheapestCompanyBids.map(bid => bid.playerId);
+      get().startBidOff(cheapestCompany.id, allBidderIds, highestBidAmount);
+      return;
     }
   },
 
@@ -776,12 +708,20 @@ export const useGameStore = create<GameStore>()(
               ),
               playerBids: state.auctionState!.playerBids.filter(bid => bid.privateCompanyId !== bidOff.privateCompanyId),
               bidOffState: undefined
-            }
+            },
+            // Notification will be added via queue
           };
         });
 
-        // Check if auction is complete
-        get().checkAuctionComplete();
+        // Add notification via queue
+        get().addNotification({
+          title: privateCompany.name,
+          message: `Purchased by ${winner.name} for $${bidOff.currentBid}`,
+          type: 'purchase',
+          duration: 4000
+        });
+
+        // Don't check auction complete here - let the notification queue handle timing
       }
     } else {
       // Continue bid-off with next player
@@ -810,6 +750,7 @@ export const useGameStore = create<GameStore>()(
     }),
     {
       name: '1830-game-storage',
+
       storage: {
         getItem: (name) => {
           const str = localStorage.getItem(name);

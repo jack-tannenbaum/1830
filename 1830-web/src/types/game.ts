@@ -140,6 +140,14 @@ export interface GameState {
   auctionState?: AuctionState;
   auctionSummary?: AuctionSummary;
   resolvingCompanyId?: string;
+  notifications: {
+    id: string;
+    title: string;
+    message: string;
+    type: 'bid' | 'purchase' | 'info' | 'warning';
+    duration?: number;
+    timestamp: number; // For queuing and ordering
+  }[];
   currentAction?: GameAction;
   history: GameAction[];
 }

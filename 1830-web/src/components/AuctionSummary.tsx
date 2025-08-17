@@ -1,64 +1,73 @@
 import React from 'react';
 import { useGameStore } from '../store/gameStore';
+import { colors } from '../styles/colors';
 
 export const AuctionSummary: React.FC = () => {
-  const { auctionSummary, continueToStockRound } = useGameStore();
+  const { auctionSummary, continueToStockRound, players } = useGameStore();
 
   if (!auctionSummary) {
     return <div>No auction summary available</div>;
   }
 
   const soldCompanies = auctionSummary.results.filter(r => r.outcome === 'sold');
-  const unsoldCompanies = auctionSummary.results.filter(r => r.outcome === 'unsold');
+
+  // Group companies by player
+  const companiesByPlayer = soldCompanies.reduce((acc, company) => {
+    const buyerId = company.buyerId!;
+    if (!acc[buyerId]) {
+      acc[buyerId] = {
+        buyerName: company.buyerName!,
+        companies: []
+      };
+    }
+    acc[buyerId].companies.push(company);
+    return acc;
+  }, {} as Record<string, { buyerName: string; companies: typeof soldCompanies }>);
+
+  // Create entries for all players, even those with no companies
+  const allPlayerEntries = players.map(player => ({
+    playerId: player.id,
+    playerName: player.name,
+    companies: companiesByPlayer[player.id]?.companies || []
+  }));
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <h2 className="text-2xl font-bold text-center mb-6">Private Company Auction Results</h2>
+    <div className={`${colors.card.background} rounded-lg shadow-lg p-6`}>
+      <h2 className={`text-2xl font-bold text-center mb-6 ${colors.text.primary}`}>Private Company Auction Results</h2>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        {/* Sold Companies */}
-        <div>
-          <h3 className="text-lg font-semibold text-green-700 mb-3">Companies Sold</h3>
-          {soldCompanies.length > 0 ? (
-            <div className="space-y-2">
-              {soldCompanies.map((result) => (
-                <div key={result.companyId} className="bg-green-50 border border-green-200 rounded p-3">
-                  <div className="font-semibold text-green-800">{result.companyName}</div>
-                  <div className="text-sm text-green-600">
-                    Sold to {result.buyerName} for ${result.price}
-                  </div>
+              <div className="mb-6">
+          <h3 className={`text-lg font-semibold ${colors.auctionSummary.title} mb-3`}>Companies by Player</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {allPlayerEntries.map((playerData) => (
+              <div key={playerData.playerId} className={`${colors.auctionSummary.playerCard.background} ${colors.auctionSummary.playerCard.border} rounded p-4`}>
+                <div className={`font-semibold ${colors.auctionSummary.playerCard.title} text-lg mb-3`}>
+                  {playerData.playerName}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-gray-500 italic">No companies were sold</div>
-          )}
-        </div>
-
-        {/* Unsold Companies */}
-        <div>
-          <h3 className="text-lg font-semibold text-red-700 mb-3">Companies Unsold</h3>
-          {unsoldCompanies.length > 0 ? (
-            <div className="space-y-2">
-              {unsoldCompanies.map((result) => (
-                <div key={result.companyId} className="bg-red-50 border border-red-200 rounded p-3">
-                  <div className="font-semibold text-red-800">{result.companyName}</div>
-                  <div className="text-sm text-red-600">
-                    Face value: ${result.price} (not sold)
+                              {playerData.companies.length > 0 ? (
+                  <div className="space-y-2">
+                    {playerData.companies.map((company) => (
+                      <div key={company.companyId} className={`${colors.auctionSummary.companyCard.background} ${colors.auctionSummary.companyCard.border} rounded p-2`}>
+                        <div className={`font-medium ${colors.auctionSummary.companyCard.name}`}>{company.companyName}</div>
+                        <div className={`text-sm ${colors.auctionSummary.companyCard.price}`}>
+                          Purchased for ${company.price}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-              ))}
+                ) : (
+                  <div className={`${colors.auctionSummary.empty} italic text-sm`}>
+                    No companies purchased
+                  </div>
+                )}
             </div>
-          ) : (
-            <div className="text-gray-500 italic">All companies were sold</div>
-          )}
+          ))}
         </div>
       </div>
 
       <div className="text-center">
         <button
           onClick={continueToStockRound}
-          className="bg-blue-600 text-white font-semibold py-3 px-6 rounded-md hover:bg-blue-700"
+          className={`${colors.button.primary} font-semibold py-3 px-6 rounded-md`}
         >
           Continue to Stock Round
         </button>

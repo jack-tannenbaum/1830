@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
+import { colors } from '../styles/colors';
 
 export const PrivateAuction: React.FC = () => {
   const { 
@@ -137,28 +138,28 @@ export const PrivateAuction: React.FC = () => {
     .sort((a, b) => a.currentPrice - b.currentPrice);
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <h2 className="text-2xl font-bold text-center mb-6">Private Company Auction</h2>
+    <div className={`${colors.card.background} rounded-lg shadow-lg p-6`}>
+      <h2 className={`text-2xl font-bold text-center mb-6 ${colors.text.primary}`}>Private Company Auction</h2>
       
       {/* Current Player Turn */}
       {currentPlayer && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className={`${colors.auction.currentPlayer.background} ${colors.auction.currentPlayer.border} rounded-lg p-4 mb-6`}>
           <div className="text-center">
-            <h3 className="text-lg font-semibold text-blue-700">
+            <h3 className={`text-lg font-semibold ${colors.auction.currentPlayer.title}`}>
               {currentPlayer.name}'s Turn
             </h3>
-            <div className="text-sm text-blue-600 mt-1">
+            <div className={`text-sm ${colors.auction.currentPlayer.text} mt-1`}>
               <span>Available Cash: ${getAvailableCash(currentPlayer.id)}</span>
-              {currentPlayerBids.length > 0 && (
-                <div className="ml-4 text-yellow-700">
-                  <div className="font-medium">Current Bids:</div>
-                  {currentPlayerBids.map((bid) => (
-                    <div key={bid.companyId} className="text-sm">
-                      ${bid.amount} on {getPrivateCompanyData(bid.companyId)?.name}
-                    </div>
-                  ))}
-                </div>
-              )}
+                              {currentPlayerBids.length > 0 && (
+                  <div className={`ml-4 ${colors.text.warning}`}>
+                    <div className="font-medium">Current Bids:</div>
+                    {currentPlayerBids.map((bid) => (
+                      <div key={bid.companyId} className="text-sm">
+                        ${bid.amount} on {getPrivateCompanyData(bid.companyId)?.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
             </div>
           </div>
         </div>
@@ -176,110 +177,110 @@ export const PrivateAuction: React.FC = () => {
           const currentBidAmount = Math.max(bidAmounts[privateCompany.id] || minBid, minBid);
           
           return (
-            <div
-              key={privateCompany.id}
-              className={`border-2 rounded-lg p-4 ${
-                isCheapest 
-                  ? 'border-green-500 bg-green-50' 
-                  : 'border-gray-300 bg-white'
-              }`}
-            >
-              {/* Company Header */}
-              <div className="text-center mb-3">
-                <h4 className="font-bold text-gray-800">{companyData?.name}</h4>
-                {isCheapest && (
-                  <div className="text-xs text-green-600 font-semibold">CHEAPEST</div>
-                )}
-              </div>
-
-              {/* Company Details */}
-              <div className="text-center mb-3">
-                <div className="text-sm text-gray-600">
-                  <div>Face Value: ${companyData?.cost}</div>
-                  <div>Revenue: ${companyData?.revenue}</div>
-                  {!isCheapest && (
-                    <>
-                      <div>High Bid: ${highestBid} ({highestBidder})</div>
-                      <div>Min Bid: ${minBid}</div>
-                    </>
-                  )}
-                  {isCheapest && privateCompany.currentPrice < (companyData?.cost || 0) && (
-                    <div className="text-red-600 font-semibold">
-                      Reduced from ${companyData?.cost}!
-                    </div>
+                          <div
+                key={privateCompany.id}
+                className={`border-2 rounded-lg p-4 ${
+                  isCheapest 
+                    ? `${colors.auction.companyCard.cheapest.border} ${colors.auction.companyCard.cheapest.background}` 
+                    : `${colors.auction.companyCard.border} ${colors.auction.companyCard.background}`
+                }`}
+              >
+                {/* Company Header */}
+                <div className="text-center mb-3">
+                  <h4 className={`font-bold ${colors.auction.companyCard.title}`}>{companyData?.name}</h4>
+                  {isCheapest && (
+                    <div className={`text-xs ${colors.auction.companyCard.cheapest.label} font-semibold`}>CHEAPEST</div>
                   )}
                 </div>
-              </div>
 
-              {/* Current Bids */}
-              {!isCheapest && (() => {
-                const currentBids = auctionState.playerBids.filter(bid => bid.privateCompanyId === privateCompany.id);
-                return currentBids.length > 0 && (
-                  <div className="text-xs text-blue-600 italic mb-2">
-                    Bids: {currentBids.map(bid => {
-                      const bidder = players.find(p => p.id === bid.playerId);
-                      return `${bidder?.name}: $${bid.amount}`;
-                    }).join('\n')}
+                              {/* Company Details */}
+                <div className="text-center mb-3">
+                  <div className={`text-sm ${colors.auction.companyCard.text}`}>
+                    <div>Face Value: ${companyData?.cost}</div>
+                    <div>Revenue: ${companyData?.revenue}</div>
+                    {!isCheapest && (
+                      <>
+                        <div>High Bid: ${highestBid} ({highestBidder})</div>
+                        <div>Min Bid: ${minBid}</div>
+                      </>
+                    )}
+                    {isCheapest && privateCompany.currentPrice < (companyData?.cost || 0) && (
+                      <div className={`${colors.private.reduced} font-semibold`}>
+                        Reduced from ${companyData?.cost}!
+                      </div>
+                    )}
                   </div>
-                );
-              })()}
-
-              {/* Special Effect */}
-              {companyData?.effect && (
-                <div className="text-xs text-gray-600 italic border-t pt-2 mb-3">
-                  {companyData.effect}
                 </div>
-              )}
 
-              {/* Action Section */}
-              <div className="border-t pt-3">
-                {isCheapest ? (
-                  /* Buy Button for Cheapest */
-                  <button
-                    onClick={handleBuyCheapest}
-                    disabled={!canBuyCheapest()}
-                    className="w-full py-2 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                  >
-                    Buy ${privateCompany.currentPrice}
-                  </button>
-                ) : (
-                  /* Bid Interface for More Expensive */
-                  <div>
-                    <div className="flex items-center gap-1 mb-2">
-                      <button
-                        onClick={() => adjustBid(privateCompany.id, -5)}
-                        disabled={currentBidAmount <= minBid}
-                        className="w-8 h-8 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-500"
-                      >
-                        -
-                      </button>
-                      <div 
-                        className="flex-1 text-center py-1 bg-blue-50 border border-blue-300 rounded font-semibold text-blue-800"
-                        onClick={() => {
-                          // Update to current minimum bid when clicked
-                          setBidAmounts({ ...bidAmounts, [privateCompany.id]: currentBidAmount });
-                        }}
-                      >
-                        ${currentBidAmount}
+                              {/* Current Bids */}
+                {!isCheapest && (() => {
+                  const currentBids = auctionState.playerBids.filter(bid => bid.privateCompanyId === privateCompany.id);
+                  return currentBids.length > 0 && (
+                    <div className={`text-xs ${colors.private.name} italic mb-2`}>
+                      Bids: {currentBids.map(bid => {
+                        const bidder = players.find(p => p.id === bid.playerId);
+                        return `${bidder?.name}: $${bid.amount}`;
+                      }).join('\n')}
+                    </div>
+                  );
+                })()}
+
+                              {/* Special Effect */}
+                {companyData?.effect && (
+                  <div className={`text-xs ${colors.private.effect} italic border-t pt-2 mb-3`}>
+                    {companyData.effect}
+                  </div>
+                )}
+
+                              {/* Action Section */}
+                <div className="border-t pt-3">
+                  {isCheapest ? (
+                    /* Buy Button for Cheapest */
+                    <button
+                      onClick={handleBuyCheapest}
+                      disabled={!canBuyCheapest()}
+                      className={`w-full py-2 ${colors.button.success} font-semibold rounded-md disabled:${colors.button.disabled}`}
+                    >
+                      Buy ${privateCompany.currentPrice}
+                    </button>
+                  ) : (
+                    /* Bid Interface for More Expensive */
+                    <div>
+                      <div className="flex items-center gap-1 mb-2">
+                        <button
+                          onClick={() => adjustBid(privateCompany.id, -5)}
+                          disabled={currentBidAmount <= minBid}
+                          className={`w-8 h-8 ${colors.button.primary} rounded disabled:${colors.button.disabled}`}
+                        >
+                          -
+                        </button>
+                        <div 
+                          className={`flex-1 text-center py-1 ${colors.auction.bidInput.background} ${colors.auction.bidInput.border} rounded font-semibold ${colors.auction.bidInput.text}`}
+                          onClick={() => {
+                            // Update to current minimum bid when clicked
+                            setBidAmounts({ ...bidAmounts, [privateCompany.id]: currentBidAmount });
+                          }}
+                        >
+                          ${currentBidAmount}
+                        </div>
+                        <button
+                          onClick={() => adjustBid(privateCompany.id, 5)}
+                          disabled={getAvailableCash(currentPlayer?.id || '') < currentBidAmount + 5}
+                          className={`w-8 h-8 ${colors.button.primary} rounded disabled:${colors.button.disabled}`}
+                        >
+                          +
+                        </button>
                       </div>
                       <button
-                        onClick={() => adjustBid(privateCompany.id, 5)}
-                        disabled={getAvailableCash(currentPlayer?.id || '') < currentBidAmount + 5}
-                        className="w-8 h-8 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-500"
+                        onClick={() => handleBidOnCompany(privateCompany.id)}
+                        disabled={!canBidOnCompany(privateCompany.id)}
+                        className={`w-full py-2 ${colors.button.warning} font-semibold rounded-md disabled:${colors.button.disabled}`}
                       >
-                        +
+                        Bid ${currentBidAmount}
                       </button>
                     </div>
-                    <button
-                      onClick={() => handleBidOnCompany(privateCompany.id)}
-                      disabled={!canBidOnCompany(privateCompany.id)}
-                      className="w-full py-2 bg-orange-500 text-white font-semibold rounded-md hover:bg-orange-600 disabled:bg-gray-400 disabled:text-gray-200 disabled:cursor-not-allowed"
-                    >
-                      Bid ${currentBidAmount}
-                    </button>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
             </div>
           );
         })}
@@ -289,7 +290,7 @@ export const PrivateAuction: React.FC = () => {
       <div className="mb-6">
         <button
           onClick={handlePass}
-          className="w-full py-3 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600"
+          className={`w-full py-3 ${colors.button.danger} font-semibold rounded-md`}
         >
           Pass Turn
         </button>
@@ -297,7 +298,7 @@ export const PrivateAuction: React.FC = () => {
 
       {/* Player Status */}
       <div className="mt-6">
-        <h4 className="font-semibold mb-2">Player Status</h4>
+        <h4 className={`font-semibold mb-2 ${colors.text.primary}`}>Player Status</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {players.map((player, index) => {
             const lockedAmount = auctionState.lockedMoney.get(player.id) || 0;
@@ -305,58 +306,58 @@ export const PrivateAuction: React.FC = () => {
             const playerBids = auctionState.playerBids.filter(bid => bid.playerId === player.id);
             
             return (
-              <div 
-                key={player.id}
-                className={`flex justify-between items-center p-2 rounded ${
-                  index === auctionState.currentPlayerIndex
-                    ? 'bg-blue-100 border border-blue-300' 
-                    : 'bg-gray-50'
-                }`}
-              >
-                <div>
-                  <span className="font-medium">
-                    {player.name}
-                    {index === auctionState.currentPlayerIndex && ' (Current)'}
-                  </span>
-                  
-                  {/* Show owned private companies */}
-                  {player.privateCompanies.length > 0 && (
-                    <div className="text-xs text-green-700">
-                      {player.privateCompanies.map((pc) => (
-                        <div key={pc.id}>
-                          Bought {pc.name} for ${(pc as any).purchasePrice || pc.cost}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* Show active bids */}
-                  {playerBids.length > 0 && (
-                    <div className="text-xs text-yellow-700">
-                      {playerBids.map((bid) => (
-                        <div key={bid.privateCompanyId}>
-                          ${bid.amount} on {getPrivateCompanyData(bid.privateCompanyId)?.name}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                              <div 
+                  key={player.id}
+                  className={`flex justify-between items-center p-2 rounded ${
+                    index === auctionState.currentPlayerIndex
+                      ? colors.player.current
+                      : colors.player.inactive
+                  }`}
+                >
+                  <div>
+                    <span className={`font-medium ${colors.player.name}`}>
+                      {player.name}
+                      {index === auctionState.currentPlayerIndex && ' (Current)'}
+                    </span>
+                    
+                    {/* Show owned private companies */}
+                    {player.privateCompanies.length > 0 && (
+                      <div className={`text-xs ${colors.text.success}`}>
+                        {player.privateCompanies.map((pc) => (
+                          <div key={pc.id}>
+                            Bought {pc.name} for ${(pc as any).purchasePrice || pc.cost}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Show active bids */}
+                    {playerBids.length > 0 && (
+                      <div className={`text-xs ${colors.text.warning}`}>
+                        {playerBids.map((bid) => (
+                          <div key={bid.privateCompanyId}>
+                            ${bid.amount} on {getPrivateCompanyData(bid.privateCompanyId)?.name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-sm text-right">
+                    <div className={colors.text.secondary}>Available: ${availableCash}</div>
+                    {lockedAmount > 0 && (
+                      <div className={`${colors.player.locked} text-xs`}>Locked: ${lockedAmount}</div>
+                    )}
+                  </div>
                 </div>
-                <div className="text-sm text-right">
-                  <div className="text-gray-600">Available: ${availableCash}</div>
-                  {lockedAmount > 0 && (
-                    <div className="text-yellow-600 text-xs">Locked: ${lockedAmount}</div>
-                  )}
-                </div>
-              </div>
             );
           })}
         </div>
       </div>
 
       {/* Auction Summary */}
-      <div className="mt-4 p-3 bg-gray-50 rounded">
-        <h5 className="font-semibold text-sm mb-1">Auction Progress</h5>
-        <p className="text-xs text-gray-600">
+      <div className={`mt-4 p-3 ${colors.auction.progress.background} rounded`}>
+        <h5 className={`font-semibold text-sm mb-1 ${colors.auction.progress.title}`}>Auction Progress</h5>
+        <p className={`text-xs ${colors.auction.progress.text}`}>
           {auctionState.privateCompanies.filter(pc => pc.isOwned).length} of 6 companies sold • 
           Consecutive passes: {auctionState.consecutivePasses}
         </p>
