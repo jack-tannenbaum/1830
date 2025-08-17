@@ -1,8 +1,49 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { GameState, Player, GameAction, AuctionState, PlayerBid, PrivateCompanyState, OwnedPrivateCompany, AuctionSummary } from '../types/game';
+import type { GameState, Player, GameAction, AuctionState, PlayerBid, PrivateCompanyState, OwnedPrivateCompany, AuctionSummary, Corporation, Certificate, Point } from '../types/game';
 import { RoundType, ActionType } from '../types/game';
-import { GAME_CONSTANTS, PRIVATE_COMPANIES } from '../types/constants';
+import { GAME_CONSTANTS, PRIVATE_COMPANIES, CORPORATIONS } from '../types/constants';
+
+// Helper functions for stock market
+const findParValuePosition = (parValue: number): Point | null => {
+  const stockMarketGrid = [
+    ["60", "67", "71", "76", "82", "90", "100", "112", "125", "142", "160", "180", "200", "225", "250", "275", "300", "325", "350"],
+    ["53", "60", "66", "70", "76", "82", "90", "100", "112", "125", "142", "160", "180", "200", "220", "240", "260", "280", "300"],
+    ["46", "55", "60", "65", "70", "76", "82", "90", "100", "111", "125", "140", "155", "170", "185", "200", null, null, null],
+    ["39", "48", "54", "60", "66", "71", "76", "82", "90", "100", "110", "120", "130", null, null, null, null, null, null],
+    ["32", "41", "48", "55", "62", "67", "71", "76", "82", "90", "100", null, null, null, null, null, null, null, null],
+    ["25", "34", "42", "50", "58", "65", "67", "71", "75", "80", null, null, null, null, null, null, null, null, null],
+    ["18", "27", "36", "45", "54", "63", "67", "69", "70", null, null, null, null, null, null, null, null, null, null],
+    ["10", "20", "30", "40", "50", "60", "67", "68", null, null, null, null, null, null, null, null, null, null, null],
+    [null, "10", "20", "30", "40", "50", "60", null, null, null, null, null, null, null, null, null, null, null, null],
+    [null, null, "10", "20", "30", "40", "50", null, null, null, null, null, null, null, null, null, null, null, null],
+    [null, null, null, "10", "20", "30", "40", null, null, null, null, null, null, null, null, null, null, null, null]
+  ];
+  
+  for (let row = 0; row < stockMarketGrid.length; row++) {
+    for (let col = 0; col < stockMarketGrid[row].length; col++) {
+      if (stockMarketGrid[row][col] === parValue.toString()) {
+        return { x: col, y: row };
+      }
+    }
+  }
+  return null;
+};
+
+const generateCorporationShares = (corporationId: string, parValue: number): Certificate[] => {
+  const shares: Certificate[] = [];
+  
+  // Generate 8 regular 10% certificates (80% total)
+  for (let i = 0; i < 8; i++) {
+    shares.push({
+      corporationId: corporationId,
+      percentage: 10,
+      isPresident: false
+    });
+  }
+  
+  return shares;
+};
 
 interface GameStore extends GameState {
   // Actions
@@ -44,6 +85,11 @@ interface GameStore extends GameState {
   buyCertificate: (playerId: string, corporationId: string) => boolean;
   buyPresidentCertificate: (playerId: string, corporationId: string, parValue: number) => boolean;
   sellCertificate: (playerId: string, corporationId: string, shares: number) => boolean;
+  
+  // Stock price movement
+  moveStockPrice: (corporationId: string, direction: 'up' | 'down') => boolean;
+  payDividend: (corporationId: string) => boolean;
+  withholdDividend: (corporationId: string) => boolean;
 }
 
 const createInitialState = (): Partial<GameState> => ({
@@ -560,31 +606,140 @@ export const useGameStore = create<GameStore>()(
     
     if (!player || !corporation) return false;
     
-    // Implementation will be added later
-    console.log(`Player ${player.name} wants to buy certificate from ${corporation.name}`);
+    // Check if corporation has available shares
+    if (corporation.availableShares.length === 0) return false;
+    
+    // Check if player can afford the share
+    if (player.cash < corporation.sharePrice) return false;
+    
+    // Check certificate limit
+    const certificateLimit = GAME_CONSTANTS.CERTIFICATE_LIMIT[state.players.length as keyof typeof GAME_CONSTANTS.CERTIFICATE_LIMIT] || 11;
+    if (player.certificates.length >= certificateLimit) return false;
+    
+    // Transfer money and certificate
+    const certificate = corporation.availableShares.pop()!;
+    certificate.corporationId = corporation.id; // Ensure correct ID
+    
+    set((state) => ({
+      players: state.players.map(p => 
+        p.id === playerId 
+          ? { ...p, cash: p.cash - corporation.sharePrice, certificates: [...p.certificates, certificate] }
+          : p
+      ),
+      corporations: state.corporations.map(c => 
+        c.id === corporationId 
+          ? { ...c, availableShares: [...c.availableShares] }
+          : c
+      )
+    }));
+    
     return true;
   },
 
   sellCertificate: (playerId, corporationId, shares) => {
     const state = get();
     const player = state.players.find(p => p.id === playerId);
+    const corporation = state.corporations.find(c => c.id === corporationId);
     
-    if (!player) return false;
+    if (!player || !corporation) return false;
     
-    // Implementation will be added later
-    console.log(`Player ${player.name} wants to sell ${shares} shares of ${corporationId}`);
+    // Check if player has enough certificates
+    const playerCerts = player.certificates.filter(cert => cert.corporationId === corporationId);
+    if (playerCerts.length < shares) return false;
+    
+    // Calculate total value
+    const totalValue = corporation.sharePrice * shares;
+    
+    // Remove certificates from player and add to corporation
+    const certsToRemove = playerCerts.slice(0, shares);
+    const remainingCerts = player.certificates.filter(cert => 
+      !certsToRemove.some(removeCert => 
+        removeCert.corporationId === cert.corporationId && 
+        removeCert.percentage === cert.percentage &&
+        removeCert.isPresident === cert.isPresident
+      )
+    );
+    
+    set((state) => ({
+      players: state.players.map(p => 
+        p.id === playerId 
+          ? { ...p, cash: p.cash + totalValue, certificates: remainingCerts }
+          : p
+      ),
+      corporations: state.corporations.map(c => 
+        c.id === corporationId 
+          ? { ...c, availableShares: [...c.availableShares, ...certsToRemove] }
+          : c
+      )
+    }));
+    
     return true;
   },
 
   buyPresidentCertificate: (playerId, corporationId, parValue) => {
     const state = get();
     const player = state.players.find(p => p.id === playerId);
-    // Corporation logic will be implemented when we add corporations
     
     if (!player) return false;
     
-    // Implementation will be added later when we implement stock rounds
-    console.log(`Player ${player.name} buying president certificate of ${corporationId} at par ${parValue}`);
+    // Find the corporation template
+    const corpTemplate = CORPORATIONS.find(c => c.abbreviation === corporationId);
+    if (!corpTemplate) return false;
+    
+    // Check if corporation is already floated
+    if (state.corporations.some(c => c.abbreviation === corporationId)) return false;
+    
+    // Calculate president certificate cost (20% of par value)
+    const presidentCost = parValue * (GAME_CONSTANTS.PRESIDENT_SHARE_PERCENTAGE / 100);
+    if (player.cash < presidentCost) return false;
+    
+    // Find the par value position on the stock market
+    const parValuePosition = findParValuePosition(parValue);
+    if (!parValuePosition) return false;
+    
+    // Create the corporation
+    const newCorporation: Corporation = {
+      id: crypto.randomUUID(),
+      name: corpTemplate.name,
+      abbreviation: corpTemplate.abbreviation,
+      presidentId: playerId,
+      parValue: parValue,
+      sharePrice: parValue,
+      treasury: 0,
+      trains: [],
+      tokens: [],
+      availableShares: generateCorporationShares(corpTemplate.abbreviation, parValue),
+      floated: true,
+      color: corpTemplate.color
+    };
+    
+    // Create president certificate
+    const presidentCertificate: Certificate = {
+      corporationId: newCorporation.id,
+      percentage: GAME_CONSTANTS.PRESIDENT_SHARE_PERCENTAGE,
+      isPresident: true
+    };
+    
+    set((state) => ({
+      players: state.players.map(p => 
+        p.id === playerId 
+          ? { 
+              ...p, 
+              cash: p.cash - presidentCost, 
+              certificates: [...p.certificates, presidentCertificate] 
+            }
+          : p
+      ),
+      corporations: [...state.corporations, newCorporation],
+      stockMarket: {
+        ...state.stockMarket,
+        tokenPositions: new Map([
+          ...state.stockMarket.tokenPositions,
+          [newCorporation.id, parValuePosition]
+        ])
+      }
+    }));
+    
     return true;
   },
 
@@ -746,6 +901,73 @@ export const useGameStore = create<GameStore>()(
     });
 
     return true;
+  },
+
+  moveStockPrice: (corporationId: string, direction: 'up' | 'down') => {
+    const state = get();
+    const corporation = state.corporations.find(c => c.id === corporationId);
+    if (!corporation) return false;
+    
+    const currentPosition = state.stockMarket.tokenPositions.get(corporationId);
+    if (!currentPosition) return false;
+    
+    const stockMarketGrid = [
+      ["60", "67", "71", "76", "82", "90", "100", "112", "125", "142", "160", "180", "200", "225", "250", "275", "300", "325", "350"],
+      ["53", "60", "66", "70", "76", "82", "90", "100", "112", "125", "142", "160", "180", "200", "220", "240", "260", "280", "300"],
+      ["46", "55", "60", "65", "70", "76", "82", "90", "100", "111", "125", "140", "155", "170", "185", "200", null, null, null],
+      ["39", "48", "54", "60", "66", "71", "76", "82", "90", "100", "110", "120", "130", null, null, null, null, null, null],
+      ["32", "41", "48", "55", "62", "67", "71", "76", "82", "90", "100", null, null, null, null, null, null, null, null],
+      ["25", "34", "42", "50", "58", "65", "67", "71", "75", "80", null, null, null, null, null, null, null, null, null],
+      ["18", "27", "36", "45", "54", "63", "67", "69", "70", null, null, null, null, null, null, null, null, null, null],
+      ["10", "20", "30", "40", "50", "60", "67", "68", null, null, null, null, null, null, null, null, null, null, null],
+      [null, "10", "20", "30", "40", "50", "60", null, null, null, null, null, null, null, null, null, null, null, null],
+      [null, null, "10", "20", "30", "40", "50", null, null, null, null, null, null, null, null, null, null, null, null],
+      [null, null, null, "10", "20", "30", "40", null, null, null, null, null, null, null, null, null, null, null, null]
+    ];
+    
+    let newPosition: Point;
+    if (direction === 'up') {
+      // Move up and right (diagonal)
+      newPosition = { x: currentPosition.x + 1, y: currentPosition.y - 1 };
+    } else {
+      // Move down and left (diagonal)
+      newPosition = { x: currentPosition.x - 1, y: currentPosition.y + 1 };
+    }
+    
+    // Check bounds
+    if (newPosition.y < 0 || newPosition.y >= stockMarketGrid.length || 
+        newPosition.x < 0 || newPosition.x >= stockMarketGrid[newPosition.y].length ||
+        stockMarketGrid[newPosition.y][newPosition.x] === null) {
+      return false;
+    }
+    
+    // Update position and share price
+    const newPrice = parseInt(stockMarketGrid[newPosition.y][newPosition.x] as string);
+    
+    set((state) => ({
+      corporations: state.corporations.map(c => 
+        c.id === corporationId 
+          ? { ...c, sharePrice: newPrice }
+          : c
+      ),
+      stockMarket: {
+        ...state.stockMarket,
+        tokenPositions: new Map([
+          ...state.stockMarket.tokenPositions,
+          [corporationId, newPosition]
+        ])
+      }
+    }));
+    
+    return true;
+  },
+
+  payDividend: (corporationId: string) => {
+    return get().moveStockPrice(corporationId, 'up');
+  },
+
+  withholdDividend: (corporationId: string) => {
+    return get().moveStockPrice(corporationId, 'down');
   }
     }),
     {

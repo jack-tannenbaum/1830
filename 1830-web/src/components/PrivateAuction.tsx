@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
-import { colors } from '../styles/colors';
+import { useColors } from '../styles/colors';
 
 export const PrivateAuction: React.FC = () => {
   const { 
@@ -14,6 +14,7 @@ export const PrivateAuction: React.FC = () => {
     bidOffPass
   } = useGameStore();
   
+  const colors = useColors();
   const [bidAmounts, setBidAmounts] = useState<{ [key: string]: number }>({});
 
   if (!auctionState) {
@@ -274,7 +275,7 @@ export const PrivateAuction: React.FC = () => {
                       <button
                         onClick={() => handleBidOnCompany(privateCompany.id)}
                         disabled={!canBidOnCompany(privateCompany.id)}
-                        className={`w-full py-2 ${colors.button.warning} font-semibold rounded-md disabled:${colors.button.disabled}`}
+                        className={`w-full py-2 font-semibold rounded-md ${colors.button.warning} disabled:bg-[#3A3A3A] disabled:text-[#606060] disabled:cursor-not-allowed`}
                       >
                         Bid ${currentBidAmount}
                       </button>
@@ -382,6 +383,7 @@ const BidOffAuction: React.FC<BidOffAuctionProps> = ({
   bidOffBid, 
   bidOffPass 
 }) => {
+  const colors = useColors();
   const [bidAmount, setBidAmount] = useState(bidOffState.currentBid + 5);
   
   const currentPlayer = players.find(p => p.id === bidOffState.participantIds[bidOffState.currentPlayerIndex]);
@@ -403,18 +405,18 @@ const BidOffAuction: React.FC<BidOffAuctionProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <h2 className="text-2xl font-bold text-center mb-6 text-red-600">Bid-Off in Progress!</h2>
+    <div className={`${colors.card.background} rounded-lg ${colors.card.shadow} p-6`}>
+      <h2 className={`text-2xl font-bold text-center mb-6 ${colors.text.danger}`}>Bid-Off in Progress!</h2>
       
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+      <div className={`${colors.notification.warning.background} ${colors.notification.warning.border} rounded-lg p-4 mb-6`}>
         <div className="text-center">
-          <h3 className="text-xl font-semibold text-red-700 mb-2">
+          <h3 className={`text-xl font-semibold mb-2 ${colors.notification.warning.title}`}>
             {privateCompany?.name}
           </h3>
-          <div className="text-lg text-red-600">
+          <div className={`text-lg ${colors.notification.warning.text}`}>
             Current High Bid: <span className="font-bold">${bidOffState.currentBid}</span> by {currentBidder?.name}
           </div>
-          <div className="text-sm text-red-500 mt-2">
+          <div className={`text-sm mt-2 ${colors.notification.warning.text}`}>
             Participants: {bidOffState.participantIds.map((id: string) => 
               players.find(p => p.id === id)?.name
             ).join(' vs ')}
@@ -423,12 +425,12 @@ const BidOffAuction: React.FC<BidOffAuctionProps> = ({
       </div>
 
       {currentPlayer && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className={`${colors.auction.currentPlayer.background} ${colors.auction.currentPlayer.border} rounded-lg p-4 mb-6`}>
           <div className="text-center">
-            <h3 className="text-lg font-semibold text-blue-700">
+            <h3 className={`text-lg font-semibold ${colors.auction.currentPlayer.title}`}>
               {currentPlayer.name}'s Turn
             </h3>
-            <div className="text-sm text-blue-600 mt-1">
+            <div className={`text-sm mt-1 ${colors.auction.currentPlayer.text}`}>
               Available Cash: ${currentPlayer.cash}
             </div>
           </div>
@@ -439,16 +441,16 @@ const BidOffAuction: React.FC<BidOffAuctionProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setBidAmount(Math.max(bidOffState.currentBid + 5, bidAmount - 5))}
-            className="w-12 h-12 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className={`w-12 h-12 ${colors.button.primary} rounded`}
           >
             -
           </button>
-          <div className="flex-1 text-center py-2 bg-blue-50 border border-blue-300 rounded font-semibold text-blue-800">
+          <div className={`flex-1 text-center py-2 ${colors.auction.bidInput.background} ${colors.auction.bidInput.border} rounded font-semibold ${colors.auction.bidInput.text}`}>
             ${bidAmount}
           </div>
           <button
             onClick={() => setBidAmount(bidAmount + 5)}
-            className="w-12 h-12 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className={`w-12 h-12 ${colors.button.primary} rounded`}
           >
             +
           </button>
@@ -457,20 +459,20 @@ const BidOffAuction: React.FC<BidOffAuctionProps> = ({
         <button
           onClick={handleBid}
           disabled={bidAmount <= bidOffState.currentBid || (currentPlayer?.cash || 0) < bidAmount}
-          className="w-full py-3 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          className={`w-full py-3 font-semibold rounded-md ${colors.button.success} disabled:bg-[#3A3A3A] disabled:text-[#606060] disabled:cursor-not-allowed`}
         >
           Bid ${bidAmount}
         </button>
         
         <button
           onClick={handlePass}
-          className="w-full py-3 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600"
+          className={`w-full py-3 font-semibold rounded-md ${colors.button.danger}`}
         >
           Pass
         </button>
       </div>
 
-      <div className="mt-6 text-center text-sm text-gray-600">
+      <div className={`mt-6 text-center text-sm ${colors.text.tertiary}`}>
         <p>Minimum bid: ${bidOffState.currentBid + 5}</p>
         <p>All tied players must bid or pass. Last bidder wins!</p>
       </div>

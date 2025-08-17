@@ -1,9 +1,10 @@
 import React from 'react';
 import { useGameStore } from '../store/gameStore';
-import { colors } from '../styles/colors';
+import { useColors } from '../styles/colors';
 
 export const AuctionSummary: React.FC = () => {
   const { auctionSummary, continueToStockRound, players } = useGameStore();
+  const colors = useColors();
 
   if (!auctionSummary) {
     return <div>No auction summary available</div>;

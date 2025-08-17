@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { colors } from '../styles/colors';
+import { useColors } from '../styles/colors';
 
 export type NotificationType = 'bid' | 'purchase' | 'info' | 'warning';
 
@@ -22,6 +22,7 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
   index,
   duration = 4000
 }) => {
+  const colors = useColors();
   const [isVisible, setIsVisible] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
