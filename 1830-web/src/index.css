@@ -17,6 +17,13 @@
   --accent-red: #ef4444;
   --accent-yellow: #f59e0b;
   --stock-cell-bg: #f8f9fa;
+  --stock-orange: #f97316;
+  --stock-yellow: #facc15;
+  --stock-red: #ef4444;
+  --stock-brown: #a16207;
+  --stock-gray: #9ca3af;
+  --stock-blue: #93c5fd;
+  --stock-blue-border: #2563eb;
 }
 
 [data-theme="dark"] {
@@ -36,6 +43,13 @@
   --accent-red: #F87171;
   --accent-yellow: #FBBF24;
   --stock-cell-bg: #3A3A3A;
+  --stock-orange: #f97316;
+  --stock-yellow: #facc15;
+  --stock-red: #ef4444;
+  --stock-brown: #a16207;
+  --stock-gray: #9ca3af;
+  --stock-blue: #93c5fd;
+  --stock-blue-border: #2563eb;
 }
 
 /* Basic reset and base styles */

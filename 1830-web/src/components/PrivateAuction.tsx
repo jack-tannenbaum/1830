@@ -275,7 +275,7 @@ export const PrivateAuction: React.FC = () => {
                       <button
                         onClick={() => handleBidOnCompany(privateCompany.id)}
                         disabled={!canBidOnCompany(privateCompany.id)}
-                        className={`w-full py-2 font-semibold rounded-md ${colors.button.warning} disabled:bg-[#3A3A3A] disabled:text-[#606060] disabled:cursor-not-allowed`}
+                        className={`w-full py-2 font-semibold rounded-md ${colors.button.warning} ${colors.button.disabled}`}
                       >
                         Bid ${currentBidAmount}
                       </button>
@@ -459,7 +459,7 @@ const BidOffAuction: React.FC<BidOffAuctionProps> = ({
         <button
           onClick={handleBid}
           disabled={bidAmount <= bidOffState.currentBid || (currentPlayer?.cash || 0) < bidAmount}
-          className={`w-full py-3 font-semibold rounded-md ${colors.button.success} disabled:bg-[#3A3A3A] disabled:text-[#606060] disabled:cursor-not-allowed`}
+                          className={`w-full py-3 font-semibold rounded-md ${colors.button.success} ${colors.button.disabled}`}
         >
           Bid ${bidAmount}
         </button>

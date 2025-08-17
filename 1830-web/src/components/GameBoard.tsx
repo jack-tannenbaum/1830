@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { RoundType } from '../types/game';
 import { PrivateAuction } from './PrivateAuction';
@@ -24,6 +24,7 @@ export const GameBoard: React.FC = () => {
   const colors = useColors();
   const { theme, toggleTheme } = useThemeStore();
   const currentPlayer = players[currentPlayerIndex];
+  const [showStockMarket, setShowStockMarket] = useState(true);
 
   // Debug logging
   console.log('Current theme:', theme);
@@ -115,20 +116,23 @@ export const GameBoard: React.FC = () => {
               <StockRound />
             ) : (
               <div className={`${colors.card.background} rounded-lg ${colors.card.shadow} p-6`}>
-                <h2 className={`text-xl font-semibold mb-4 ${colors.text.primary}`}>Game Board</h2>
-                
-                {/* Placeholder for hex map */}
-                <div className={`aspect-video ${colors.gameBoard.map.background} rounded-lg border-2 border-dashed ${colors.gameBoard.map.border} flex items-center justify-center`}>
-                  <div className={`text-center ${colors.gameBoard.map.text}`}>
-                    <div className="text-4xl mb-2">🚂</div>
-                    <p className="text-lg font-medium">Railway Map</p>
-                    <p className="text-sm">Hex map will be implemented here</p>
-                  </div>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className={`text-xl font-semibold ${colors.text.primary}`}>Game Board</h2>
+                  <button
+                    onClick={() => setShowStockMarket(!showStockMarket)}
+                    className={`px-3 py-2 rounded-lg transition-colors duration-300 text-white ${
+                      showStockMarket 
+                        ? colors.gameBoard.toggleButton.stockMarket
+                        : colors.gameBoard.toggleButton.railwayMap
+                    }`}
+                    title={showStockMarket ? 'Show Railway Map' : 'Show Stock Market'}
+                  >
+                    {showStockMarket ? '🗺️ Map' : '📊 Market'}
+                  </button>
                 </div>
                 
-                {/* Stock Market */}
-                <div className="mt-6">
-                  <h3 className={`text-lg font-semibold mb-3 ${colors.text.primary}`}>Stock Market</h3>
+                {showStockMarket ? (
+                  /* Stock Market */
                   <div className={`${colors.gameBoard.stockMarket.background} p-4 rounded-lg`}>
                     <div className="grid grid-cols-19 gap-1 text-xs">
                       {(() => {
@@ -168,19 +172,19 @@ export const GameBoard: React.FC = () => {
                             pos.x === colIndex && pos.y === rowIndex
                           );
                           
-                          if (hasCorporation) return { backgroundColor: '#93c5fd', border: '2px solid #2563eb' };
+                          if (hasCorporation) return { backgroundColor: 'var(--stock-blue)', border: '2px solid var(--stock-blue-border)' };
                           
                           // Get color from the color grid
                           const color = stockMarketColorGrid[rowIndex]?.[colIndex];
                           if (!color) return {};
                           
-                          // Map color names to inline styles
+                          // Map color names to CSS variables
                           switch (color) {
-                            case 'orange': return { backgroundColor: '#f97316' }; // orange-500
-                            case 'yellow': return { backgroundColor: '#facc15' }; // yellow-400
-                            case 'red': return { backgroundColor: '#ef4444' }; // red-500
-                            case 'brown': return { backgroundColor: '#a16207' }; // amber-700
-                            case 'white': return { backgroundColor: '#9ca3af' }; // gray-400
+                            case 'orange': return { backgroundColor: 'var(--stock-orange)' };
+                            case 'yellow': return { backgroundColor: 'var(--stock-yellow)' };
+                            case 'red': return { backgroundColor: 'var(--stock-red)' };
+                            case 'brown': return { backgroundColor: 'var(--stock-brown)' };
+                            case 'white': return { backgroundColor: 'var(--stock-gray)' };
                             default: return {};
                           }
                         };
@@ -202,7 +206,16 @@ export const GameBoard: React.FC = () => {
                       })()}
                     </div>
                   </div>
-                </div>
+                ) : (
+                  /* Railway Map */
+                  <div className={`aspect-video ${colors.gameBoard.map.background} rounded-lg border-2 border-dashed ${colors.gameBoard.map.border} flex items-center justify-center`}>
+                    <div className={`text-center ${colors.gameBoard.map.text}`}>
+                      <div className="text-4xl mb-2">🚂</div>
+                      <p className="text-lg font-medium">Railway Map</p>
+                      <p className="text-sm">Hex map will be implemented here</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -240,7 +253,9 @@ export const GameBoard: React.FC = () => {
                           {player.privateCompanies.map((privateCompany) => (
                             <div key={privateCompany.id} className={`text-xs ${colors.auction.bidInput.background} ${colors.auction.bidInput.border} rounded px-2 py-1`}>
                               <div className={`font-medium ${colors.private.name}`}>{privateCompany.name}</div>
-                              <div className={colors.private.name}>Bought for ${privateCompany.purchasePrice}</div>
+                              {roundType === RoundType.PRIVATE_AUCTION && (
+                                <div className={colors.private.name}>Bought for ${privateCompany.purchasePrice}</div>
+                              )}
                             </div>
                           ))}
                         </div>

@@ -127,6 +127,10 @@ export const lightTheme = {
     },
     stockMarket: {
       background: 'bg-white'
+    },
+    toggleButton: {
+      stockMarket: 'bg-purple-600 hover:bg-purple-700',
+      railwayMap: 'bg-green-600 hover:bg-green-700'
     }
   },
 
@@ -205,7 +209,7 @@ export const darkTheme = {
     current: 'bg-[#004D61] border-[#006D81]', // dark teal
     inactive: 'bg-[#2A2A2A]', // card background
     name: 'text-[#F0F0F0]', // off-white
-    cash: 'text-green-400', // bright green
+    cash: 'text-[#4ADE80]', // bright green
     locked: 'text-yellow-400' // bright yellow
   },
 
@@ -285,6 +289,10 @@ export const darkTheme = {
     },
     stockMarket: {
       background: 'bg-[#2A2A2A]' // card background
+    },
+    toggleButton: {
+      stockMarket: 'bg-[#9333ea] hover:bg-[#7c3aed]', // purple
+      railwayMap: 'bg-[#16a34a] hover:bg-[#15803d]' // green
     }
   },
 
