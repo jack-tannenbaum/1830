@@ -115,7 +115,7 @@ export const GameBoard: React.FC = () => {
             <div className="bg-white rounded-lg shadow p-4">
               <h3 className="text-lg font-semibold mb-3">Corporations</h3>
               {corporations.length === 0 ? (
-                <p className="text-gray-500 text-sm">No corporations started yet</p>
+                <p className="text-gray-500 text-sm">No corporations floated yet</p>
               ) : (
                 <div className="space-y-2">
                   {corporations.map((corp) => (
@@ -138,24 +138,26 @@ export const GameBoard: React.FC = () => {
               )}
             </div>
 
-            {/* Game Actions */}
-            <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="text-lg font-semibold mb-3">Actions</h3>
-              <div className="space-y-2">
-                <button className="w-full py-2 px-3 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm">
-                  Buy Certificate
-                </button>
-                <button className="w-full py-2 px-3 bg-red-500 text-white rounded hover:bg-red-600 transition-colors text-sm">
-                  Sell Certificate
-                </button>
-                <button className="w-full py-2 px-3 bg-green-500 text-white rounded hover:bg-green-600 transition-colors text-sm">
-                  Start Corporation
-                </button>
-                <button className="w-full py-2 px-3 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors text-sm">
-                  Pass
-                </button>
+            {/* Game Actions - Only show during Stock Round */}
+            {roundType === RoundType.STOCK && (
+              <div className="bg-white rounded-lg shadow p-4">
+                <h3 className="text-lg font-semibold mb-3">Stock Actions</h3>
+                <div className="space-y-2">
+                  <button className="w-full py-2 px-3 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm">
+                    Buy Certificate
+                  </button>
+                  <button className="w-full py-2 px-3 bg-red-500 text-white rounded hover:bg-red-600 transition-colors text-sm">
+                    Sell Certificate
+                  </button>
+                  <button className="w-full py-2 px-3 bg-green-500 text-white rounded hover:bg-green-600 transition-colors text-sm">
+                    Buy President's Certificate
+                  </button>
+                  <button className="w-full py-2 px-3 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors text-sm">
+                    Pass
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

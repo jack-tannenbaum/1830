@@ -175,8 +175,8 @@ export enum ActionType {
   
   // Stock round actions  
   BUY_CERTIFICATE = 'buy_certificate',
+  BUY_PRESIDENT_CERTIFICATE = 'buy_president_certificate',
   SELL_CERTIFICATE = 'sell_certificate',
-  START_CORPORATION = 'start_corporation',
   PASS_STOCK = 'pass_stock',
   
   // Operating round actions

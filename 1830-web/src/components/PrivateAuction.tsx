@@ -180,6 +180,19 @@ export const PrivateAuction: React.FC = () => {
                 </div>
               </div>
 
+              {/* Current Bids */}
+              {!isCheapest && (() => {
+                const currentBids = auctionState.playerBids.filter(bid => bid.privateCompanyId === privateCompany.id);
+                return currentBids.length > 0 && (
+                  <div className="text-xs text-blue-600 italic mb-2">
+                    Bids: {currentBids.map(bid => {
+                      const bidder = players.find(p => p.id === bid.playerId);
+                      return `${bidder?.name}: $${bid.amount}`;
+                    }).join(', ')}
+                  </div>
+                );
+              })()}
+
               {/* Special Effect */}
               {companyData?.effect && (
                 <div className="text-xs text-gray-600 italic border-t pt-2 mb-3">
@@ -205,12 +218,12 @@ export const PrivateAuction: React.FC = () => {
                       <button
                         onClick={() => adjustBid(privateCompany.id, -5)}
                         disabled={currentBidAmount <= minBid}
-                        className="w-8 h-8 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400"
+                        className="w-8 h-8 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-500"
                       >
                         -
                       </button>
                       <div 
-                        className="flex-1 text-center py-1 bg-gray-50 border border-gray-300 rounded font-semibold"
+                        className="flex-1 text-center py-1 bg-blue-50 border border-blue-300 rounded font-semibold text-blue-800"
                         onClick={() => initializeBidAmount(privateCompany.id)}
                       >
                         ${currentBidAmount}
@@ -218,7 +231,7 @@ export const PrivateAuction: React.FC = () => {
                       <button
                         onClick={() => adjustBid(privateCompany.id, 5)}
                         disabled={getAvailableCash(currentPlayer?.id || '') < currentBidAmount + 5}
-                        className="w-8 h-8 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400"
+                        className="w-8 h-8 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-500"
                       >
                         +
                       </button>
@@ -226,7 +239,7 @@ export const PrivateAuction: React.FC = () => {
                     <button
                       onClick={() => handleBidOnCompany(privateCompany.id)}
                       disabled={!canBidOnCompany(privateCompany.id)}
-                      className="w-full py-2 bg-yellow-600 text-white font-semibold rounded-md hover:bg-yellow-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                      className="w-full py-2 bg-orange-500 text-white font-semibold rounded-md hover:bg-orange-600 disabled:bg-gray-400 disabled:text-gray-200 disabled:cursor-not-allowed"
                     >
                       Bid ${currentBidAmount}
                     </button>
@@ -284,7 +297,7 @@ export const PrivateAuction: React.FC = () => {
                   )}
                   {player.privateCompanies.length > 0 && (
                     <div className="text-xs bg-green-200 px-1 rounded mt-1">
-                      {player.privateCompanies.length} private
+                      Owns: {player.privateCompanies.map(pc => pc.name.split(' ')[0]).join(', ')}
                     </div>
                   )}
                 </div>

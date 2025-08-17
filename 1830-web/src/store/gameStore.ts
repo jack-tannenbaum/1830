@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { GameState, Player, GameAction, AuctionState, PlayerBid, PrivateCompanyState } from '../types/game';
 import { RoundType, ActionType } from '../types/game';
 import { GAME_CONSTANTS, PRIVATE_COMPANIES } from '../types/constants';
@@ -14,6 +15,8 @@ interface GameStore extends GameState {
   
   // Game setup
   initializeGame: (playerNames: string[]) => void;
+  newGame: () => void;
+  hasActiveGame: () => boolean;
   
   // Private auction actions
   buyCheapestPrivate: (playerId: string) => boolean;
@@ -24,10 +27,8 @@ interface GameStore extends GameState {
   
   // Stock actions
   buyCertificate: (playerId: string, corporationId: string) => boolean;
+  buyPresidentCertificate: (playerId: string, corporationId: string, parValue: number) => boolean;
   sellCertificate: (playerId: string, corporationId: string, shares: number) => boolean;
-  
-  // Corporation actions
-  startCorporation: (corporationId: string, playerId: string, parValue: number) => boolean;
 }
 
 const createInitialState = (): Partial<GameState> => ({
@@ -54,10 +55,21 @@ const createInitialState = (): Partial<GameState> => ({
   history: []
 });
 
-export const useGameStore = create<GameStore>((set, get) => ({
-  ...createInitialState() as GameState,
+export const useGameStore = create<GameStore>()(
+  persist(
+    (set, get) => ({
+      ...createInitialState() as GameState,
 
-  setGameState: (newState) => set((state) => ({ ...state, ...newState })),
+      setGameState: (newState) => set((state) => ({ ...state, ...newState })),
+
+      newGame: () => {
+        set(createInitialState() as GameState);
+      },
+
+      hasActiveGame: () => {
+        const state = get();
+        return state.players.length > 0;
+      },
 
   addPlayer: (name) => set((state) => {
     const newPlayer: Player = {
@@ -347,15 +359,47 @@ export const useGameStore = create<GameStore>((set, get) => ({
     return true;
   },
 
-  startCorporation: (corporationId, playerId, parValue) => {
+  buyPresidentCertificate: (playerId, corporationId, parValue) => {
     const state = get();
     const player = state.players.find(p => p.id === playerId);
-    const corporation = state.corporations.find(c => c.id === corporationId);
+    // Corporation logic will be implemented when we add corporations
     
-    if (!player || !corporation || corporation.floated) return false;
+    if (!player) return false;
     
-    // Implementation will be added later
-    console.log(`Starting corporation ${corporation.name} with par value ${parValue}`);
+    // Implementation will be added later when we implement stock rounds
+    console.log(`Player ${player.name} buying president certificate of ${corporationId} at par ${parValue}`);
     return true;
   }
-}));
+    }),
+    {
+      name: '1830-game-storage',
+      storage: {
+        getItem: (name) => {
+          const str = localStorage.getItem(name);
+          if (!str) return null;
+          return JSON.parse(str, (key, value) => {
+            if (value && typeof value === 'object' && value.__type === 'Map') {
+              return new Map(value.value);
+            }
+            if (value && typeof value === 'object' && value.__type === 'Set') {
+              return new Set(value.value);
+            }
+            return value;
+          });
+        },
+        setItem: (name, value) => {
+          localStorage.setItem(name, JSON.stringify(value, (key, val) => {
+            if (val instanceof Map) {
+              return { __type: 'Map', value: Array.from(val.entries()) };
+            }
+            if (val instanceof Set) {
+              return { __type: 'Set', value: Array.from(val) };
+            }
+            return val;
+          }));
+        },
+        removeItem: (name) => localStorage.removeItem(name),
+      },
+    }
+  )
+);
