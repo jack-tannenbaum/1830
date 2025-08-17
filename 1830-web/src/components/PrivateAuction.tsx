@@ -8,13 +8,26 @@ export const PrivateAuction: React.FC = () => {
     bank,
     buyCheapestPrivate,
     bidOnPrivate, 
-    passPrivateAuction 
+    passPrivateAuction,
+    bidOffBid,
+    bidOffPass
   } = useGameStore();
   
   const [bidAmounts, setBidAmounts] = useState<{ [key: string]: number }>({});
 
   if (!auctionState) {
     return <div>No auction in progress</div>;
+  }
+
+  // If there's a bid-off in progress, show bid-off UI
+  if (auctionState.bidOffState) {
+    return <BidOffAuction 
+      bidOffState={auctionState.bidOffState}
+      players={players}
+      bank={bank}
+      bidOffBid={bidOffBid}
+      bidOffPass={bidOffPass}
+    />;
   }
 
   const currentPlayer = players[auctionState.currentPlayerIndex];
@@ -31,8 +44,13 @@ export const PrivateAuction: React.FC = () => {
 
   const getHighestBid = (privateCompanyId: string): number => {
     const bids = auctionState.playerBids.filter(bid => bid.privateCompanyId === privateCompanyId);
-    const privateCo = auctionState.privateCompanies.find(pc => pc.id === privateCompanyId);
-    return Math.max(...bids.map(bid => bid.amount), privateCo?.currentPrice || 0);
+    if (bids.length === 0) {
+      // No bids, return face value
+      const privateCo = auctionState.privateCompanies.find(pc => pc.id === privateCompanyId);
+      return privateCo?.currentPrice || 0;
+    }
+    // Return highest bid amount
+    return Math.max(...bids.map(bid => bid.amount));
   };
 
   const getHighestBidder = (privateCompanyId: string): string => {
@@ -44,10 +62,11 @@ export const PrivateAuction: React.FC = () => {
     return player?.name || 'Unknown';
   };
 
-  const getCurrentPlayerBid = (): { companyId: string; amount: number } | null => {
-    if (!currentPlayer) return null;
-    const bid = auctionState.playerBids.find(bid => bid.playerId === currentPlayer.id);
-    return bid ? { companyId: bid.privateCompanyId, amount: bid.amount } : null;
+  const getCurrentPlayerBids = (): { companyId: string; amount: number }[] => {
+    if (!currentPlayer) return [];
+    return auctionState.playerBids
+      .filter(bid => bid.playerId === currentPlayer.id)
+      .map(bid => ({ companyId: bid.privateCompanyId, amount: bid.amount }));
   };
 
   const getAvailableCash = (playerId: string): number => {
@@ -67,10 +86,13 @@ export const PrivateAuction: React.FC = () => {
   };
 
   const handleBidOnCompany = (companyId: string) => {
-    const amount = bidAmounts[companyId];
+    const minBid = getMinBidForCompany(companyId);
+    const amount = Math.max(bidAmounts[companyId] || minBid, minBid);
     if (currentPlayer && amount) {
       if (bidOnPrivate(currentPlayer.id, companyId, amount)) {
-        setBidAmounts({ ...bidAmounts, [companyId]: getMinBidForCompany(companyId) });
+        // Reset the bid amount to the new minimum after successful bid
+        const newMinBid = getMinBidForCompany(companyId);
+        setBidAmounts({ ...bidAmounts, [companyId]: newMinBid });
       }
     }
   };
@@ -100,11 +122,14 @@ export const PrivateAuction: React.FC = () => {
 
   const canBidOnCompany = (companyId: string) => {
     if (!currentPlayer) return false;
-    const amount = bidAmounts[companyId] || getMinBidForCompany(companyId);
-    return getAvailableCash(currentPlayer.id) >= amount && amount >= getMinBidForCompany(companyId);
+    const minBid = getMinBidForCompany(companyId);
+    const amount = Math.max(bidAmounts[companyId] || minBid, minBid);
+    const availableCash = getAvailableCash(currentPlayer.id);
+    
+    return availableCash >= amount && amount >= minBid;
   };
 
-  const currentPlayerBid = getCurrentPlayerBid();
+  const currentPlayerBids = getCurrentPlayerBids();
 
   // Sort companies by price for consistent display
   const sortedCompanies = auctionState.privateCompanies
@@ -124,10 +149,15 @@ export const PrivateAuction: React.FC = () => {
             </h3>
             <div className="text-sm text-blue-600 mt-1">
               <span>Available Cash: ${getAvailableCash(currentPlayer.id)}</span>
-              {currentPlayerBid && (
-                <span className="ml-4 text-yellow-700">
-                  Current Bid: ${currentPlayerBid.amount} on {getPrivateCompanyData(currentPlayerBid.companyId)?.name}
-                </span>
+              {currentPlayerBids.length > 0 && (
+                <div className="ml-4 text-yellow-700">
+                  <div className="font-medium">Current Bids:</div>
+                  {currentPlayerBids.map((bid) => (
+                    <div key={bid.companyId} className="text-sm">
+                      ${bid.amount} on {getPrivateCompanyData(bid.companyId)?.name}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>
@@ -142,7 +172,8 @@ export const PrivateAuction: React.FC = () => {
           const highestBidder = getHighestBidder(privateCompany.id);
           const minBid = getMinBidForCompany(privateCompany.id);
           const isCheapest = privateCompany.id === cheapestPrivate?.id;
-          const currentBidAmount = bidAmounts[privateCompany.id] || minBid;
+          // Ensure bid amount is at least the minimum bid (updates when other players bid)
+          const currentBidAmount = Math.max(bidAmounts[privateCompany.id] || minBid, minBid);
           
           return (
             <div
@@ -188,7 +219,7 @@ export const PrivateAuction: React.FC = () => {
                     Bids: {currentBids.map(bid => {
                       const bidder = players.find(p => p.id === bid.playerId);
                       return `${bidder?.name}: $${bid.amount}`;
-                    }).join(', ')}
+                    }).join('\n')}
                   </div>
                 );
               })()}
@@ -224,7 +255,10 @@ export const PrivateAuction: React.FC = () => {
                       </button>
                       <div 
                         className="flex-1 text-center py-1 bg-blue-50 border border-blue-300 rounded font-semibold text-blue-800"
-                        onClick={() => initializeBidAmount(privateCompany.id)}
+                        onClick={() => {
+                          // Update to current minimum bid when clicked
+                          setBidAmounts({ ...bidAmounts, [privateCompany.id]: currentBidAmount });
+                        }}
                       >
                         ${currentBidAmount}
                       </div>
@@ -268,7 +302,7 @@ export const PrivateAuction: React.FC = () => {
           {players.map((player, index) => {
             const lockedAmount = auctionState.lockedMoney.get(player.id) || 0;
             const availableCash = player.cash - lockedAmount;
-            const playerBid = auctionState.playerBids.find(bid => bid.playerId === player.id);
+            const playerBids = auctionState.playerBids.filter(bid => bid.playerId === player.id);
             
             return (
               <div 
@@ -284,9 +318,26 @@ export const PrivateAuction: React.FC = () => {
                     {player.name}
                     {index === auctionState.currentPlayerIndex && ' (Current)'}
                   </span>
-                  {playerBid && (
+                  
+                  {/* Show owned private companies */}
+                  {player.privateCompanies.length > 0 && (
+                    <div className="text-xs text-green-700">
+                      {player.privateCompanies.map((pc) => (
+                        <div key={pc.id}>
+                          Bought {pc.name} for ${(pc as any).purchasePrice || pc.cost}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Show active bids */}
+                  {playerBids.length > 0 && (
                     <div className="text-xs text-yellow-700">
-                      Bid: ${playerBid.amount} on {getPrivateCompanyData(playerBid.privateCompanyId)?.name}
+                      {playerBids.map((bid) => (
+                        <div key={bid.privateCompanyId}>
+                          ${bid.amount} on {getPrivateCompanyData(bid.privateCompanyId)?.name}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -294,11 +345,6 @@ export const PrivateAuction: React.FC = () => {
                   <div className="text-gray-600">Available: ${availableCash}</div>
                   {lockedAmount > 0 && (
                     <div className="text-yellow-600 text-xs">Locked: ${lockedAmount}</div>
-                  )}
-                  {player.privateCompanies.length > 0 && (
-                    <div className="text-xs bg-green-200 px-1 rounded mt-1">
-                      Owns: {player.privateCompanies.map(pc => pc.name.split(' ')[0]).join(', ')}
-                    </div>
                   )}
                 </div>
               </div>
@@ -314,6 +360,118 @@ export const PrivateAuction: React.FC = () => {
           {auctionState.privateCompanies.filter(pc => pc.isOwned).length} of 6 companies sold • 
           Consecutive passes: {auctionState.consecutivePasses}
         </p>
+      </div>
+    </div>
+  );
+};
+
+// Bid-off component for tied bids
+interface BidOffAuctionProps {
+  bidOffState: any; // BidOffState type
+  players: any[];
+  bank: any;
+  bidOffBid: (playerId: string, amount: number) => boolean;
+  bidOffPass: (playerId: string) => boolean;
+}
+
+const BidOffAuction: React.FC<BidOffAuctionProps> = ({ 
+  bidOffState, 
+  players, 
+  bank, 
+  bidOffBid, 
+  bidOffPass 
+}) => {
+  const [bidAmount, setBidAmount] = useState(bidOffState.currentBid + 5);
+  
+  const currentPlayer = players.find(p => p.id === bidOffState.participantIds[bidOffState.currentPlayerIndex]);
+  const currentBidder = players.find(p => p.id === bidOffState.currentBidderId);
+  const privateCompany = bank.privateCompanies.find((pc: any) => pc.id === bidOffState.privateCompanyId);
+  
+  const handleBid = () => {
+    if (currentPlayer && bidAmount > bidOffState.currentBid) {
+      if (bidOffBid(currentPlayer.id, bidAmount)) {
+        setBidAmount(bidAmount + 5);
+      }
+    }
+  };
+  
+  const handlePass = () => {
+    if (currentPlayer) {
+      bidOffPass(currentPlayer.id);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-lg p-6">
+      <h2 className="text-2xl font-bold text-center mb-6 text-red-600">Bid-Off in Progress!</h2>
+      
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+        <div className="text-center">
+          <h3 className="text-xl font-semibold text-red-700 mb-2">
+            {privateCompany?.name}
+          </h3>
+          <div className="text-lg text-red-600">
+            Current High Bid: <span className="font-bold">${bidOffState.currentBid}</span> by {currentBidder?.name}
+          </div>
+          <div className="text-sm text-red-500 mt-2">
+            Participants: {bidOffState.participantIds.map((id: string) => 
+              players.find(p => p.id === id)?.name
+            ).join(' vs ')}
+          </div>
+        </div>
+      </div>
+
+      {currentPlayer && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-blue-700">
+              {currentPlayer.name}'s Turn
+            </h3>
+            <div className="text-sm text-blue-600 mt-1">
+              Available Cash: ${currentPlayer.cash}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-4 max-w-md mx-auto">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setBidAmount(Math.max(bidOffState.currentBid + 5, bidAmount - 5))}
+            className="w-12 h-12 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            -
+          </button>
+          <div className="flex-1 text-center py-2 bg-blue-50 border border-blue-300 rounded font-semibold text-blue-800">
+            ${bidAmount}
+          </div>
+          <button
+            onClick={() => setBidAmount(bidAmount + 5)}
+            className="w-12 h-12 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            +
+          </button>
+        </div>
+        
+        <button
+          onClick={handleBid}
+          disabled={bidAmount <= bidOffState.currentBid || (currentPlayer?.cash || 0) < bidAmount}
+          className="w-full py-3 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+        >
+          Bid ${bidAmount}
+        </button>
+        
+        <button
+          onClick={handlePass}
+          className="w-full py-3 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600"
+        >
+          Pass
+        </button>
+      </div>
+
+      <div className="mt-6 text-center text-sm text-gray-600">
+        <p>Minimum bid: ${bidOffState.currentBid + 5}</p>
+        <p>All tied players must bid or pass. Last bidder wins!</p>
       </div>
     </div>
   );

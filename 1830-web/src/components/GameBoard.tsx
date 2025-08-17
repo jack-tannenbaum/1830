@@ -2,6 +2,8 @@ import React from 'react';
 import { useGameStore } from '../store/gameStore';
 import { RoundType } from '../types/game';
 import { PrivateAuction } from './PrivateAuction';
+import { PrivateResolution } from './PrivateResolution';
+import { AuctionSummary } from './AuctionSummary';
 
 export const GameBoard: React.FC = () => {
   const { 
@@ -25,6 +27,8 @@ export const GameBoard: React.FC = () => {
               <p className="text-gray-600">
                 Phase {phase} • {
                   roundType === RoundType.PRIVATE_AUCTION ? 'Private Company Auction' :
+                  roundType === RoundType.PRIVATE_RESOLUTION ? 'Resolving Private Companies' :
+                  roundType === RoundType.AUCTION_SUMMARY ? 'Auction Summary' :
                   roundType === RoundType.STOCK ? 'Stock Round' : 'Operating Round'
                 }
               </p>
@@ -48,6 +52,10 @@ export const GameBoard: React.FC = () => {
           <div className="lg:col-span-3">
             {roundType === RoundType.PRIVATE_AUCTION ? (
               <PrivateAuction />
+            ) : roundType === RoundType.PRIVATE_RESOLUTION ? (
+              <PrivateResolution />
+            ) : roundType === RoundType.AUCTION_SUMMARY ? (
+              <AuctionSummary />
             ) : (
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-semibold mb-4">Game Board</h2>
@@ -99,13 +107,29 @@ export const GameBoard: React.FC = () => {
                         : 'border-gray-200'
                     }`}
                   >
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center mb-2">
                       <span className="font-medium">{player.name}</span>
                       <span className="text-green-600 font-semibold">${player.cash}</span>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">
+                    
+                    <div className="text-xs text-gray-500 mb-2">
                       {player.certificates.length} certificates
                     </div>
+                    
+                    {/* Private Companies */}
+                    {player.privateCompanies.length > 0 && (
+                      <div className="mt-2">
+                        <div className="text-xs font-medium text-blue-600 mb-1">Private Companies:</div>
+                        <div className="space-y-1">
+                          {player.privateCompanies.map((privateCompany) => (
+                            <div key={privateCompany.id} className="text-xs bg-blue-50 border border-blue-200 rounded px-2 py-1">
+                              <div className="font-medium text-blue-800">{privateCompany.name}</div>
+                              <div className="text-blue-600">Bought for ${privateCompany.purchasePrice}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

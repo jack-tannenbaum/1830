@@ -9,6 +9,13 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onGameStart }) => {
   const [playerNames, setPlayerNames] = useState<string[]>(['', '', '', '']);
   const { initializeGame } = useGameStore();
 
+  const defaultNames = ['Player 1', 'Player 2', 'Player 3', 'Player 4', 'Player 5', 'Player 6'];
+
+  const fillDefaultNames = () => {
+    const namesToFill = playerNames.length;
+    setPlayerNames(defaultNames.slice(0, namesToFill));
+  };
+
   const handlePlayerNameChange = (index: number, name: string) => {
     const newNames = [...playerNames];
     newNames[index] = name;
@@ -17,7 +24,14 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onGameStart }) => {
 
   const addPlayer = () => {
     if (playerNames.length < 6) {
-      setPlayerNames([...playerNames, '']);
+      const newNames = [...playerNames, ''];
+      setPlayerNames(newNames);
+      // Auto-fill the new player's name
+      if (newNames.length <= defaultNames.length) {
+        const updatedNames = [...newNames];
+        updatedNames[updatedNames.length - 1] = defaultNames[updatedNames.length - 1];
+        setPlayerNames(updatedNames);
+      }
     }
   };
 
@@ -52,6 +66,15 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onGameStart }) => {
         <div className="space-y-4">
           <h2 className="text-xl font-semibold text-gray-700 mb-4">Player Setup</h2>
           
+          <div className="flex gap-2 mb-4">
+            <button
+              onClick={fillDefaultNames}
+              className="flex-1 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors text-sm"
+            >
+              Fill Default Names
+            </button>
+          </div>
+          
           {playerNames.map((name, index) => (
             <div key={index} className="flex gap-2">
               <input
@@ -61,6 +84,13 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onGameStart }) => {
                 onChange={(e) => handlePlayerNameChange(index, e.target.value)}
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
               />
+              <button
+                onClick={() => handlePlayerNameChange(index, defaultNames[index])}
+                className="px-3 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors text-sm"
+                title={`Fill ${defaultNames[index]}`}
+              >
+                {defaultNames[index].split(' ')[1]}
+              </button>
               {playerNames.length > 3 && (
                 <button
                   onClick={() => removePlayer(index)}

@@ -2,6 +2,8 @@
 
 export enum RoundType {
   PRIVATE_AUCTION = 'private_auction',
+  PRIVATE_RESOLUTION = 'private_resolution',
+  AUCTION_SUMMARY = 'auction_summary',
   STOCK = 'stock',
   OPERATING = 'operating'
 }
@@ -47,6 +49,10 @@ export interface PrivateCompany {
   cost: number;
   revenue: number;
   effect?: string;
+}
+
+export interface OwnedPrivateCompany extends PrivateCompany {
+  purchasePrice: number;
 }
 
 export interface Train {
@@ -100,7 +106,7 @@ export interface Player {
   name: string;
   cash: number;
   certificates: Certificate[];
-  privateCompanies: PrivateCompany[];
+  privateCompanies: OwnedPrivateCompany[];
   priority: number; // turn order
 }
 
@@ -132,6 +138,8 @@ export interface GameState {
   gameMap: GameMap;
   trainSupply: Map<TrainType, Train[]>;
   auctionState?: AuctionState;
+  auctionSummary?: AuctionSummary;
+  resolvingCompanyId?: string;
   currentAction?: GameAction;
   history: GameAction[];
 }
@@ -149,6 +157,15 @@ export interface PrivateCompanyState {
   ownerId?: string;
 }
 
+export interface BidOffState {
+  privateCompanyId: string;
+  participantIds: string[]; // player IDs in the bid-off
+  currentPlayerIndex: number;
+  currentBid: number;
+  currentBidderId: string;
+  consecutivePasses: number;
+}
+
 export interface AuctionState {
   privateCompanies: PrivateCompanyState[];
   playerTurnOrder: string[]; // player IDs  
@@ -157,6 +174,18 @@ export interface AuctionState {
   lockedMoney: Map<string, number>; // playerId -> locked amount
   consecutivePasses: number;
   auctionComplete: boolean;
+  bidOffState?: BidOffState; // active when there's a tie to resolve
+}
+
+export interface AuctionSummary {
+  results: {
+    companyId: string;
+    companyName: string;
+    outcome: 'sold' | 'unsold';
+    buyerId?: string;
+    buyerName?: string;
+    price: number;
+  }[];
 }
 
 export interface GameAction {
@@ -172,6 +201,10 @@ export enum ActionType {
   BUY_CHEAPEST_PRIVATE = 'buy_cheapest_private',
   BID_ON_PRIVATE = 'bid_on_private',
   PASS_PRIVATE_AUCTION = 'pass_private_auction',
+  
+  // Bid-off actions
+  BID_OFF_BID = 'bid_off_bid',
+  BID_OFF_PASS = 'bid_off_pass',
   
   // Stock round actions  
   BUY_CERTIFICATE = 'buy_certificate',
