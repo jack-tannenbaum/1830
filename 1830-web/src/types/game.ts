@@ -152,6 +152,10 @@ export interface GameState {
   }[];
   currentAction?: GameAction;
   history: GameAction[];
+  stockRoundState?: {
+    currentPlayerActions: StockAction[];
+    turnStartTime: number;
+  };
 }
 
 export interface PlayerBid {
@@ -196,6 +200,27 @@ export interface AuctionSummary {
     buyerName?: string;
     price: number;
   }[];
+}
+
+export interface StockAction {
+  id: string;
+  playerId: string;
+  type: 'buy_certificate' | 'sell_certificate' | 'start_corporation';
+  timestamp: number;
+  data: {
+    corporationId?: string;
+    corporationAbbreviation?: string;
+    parValue?: number;
+    shares?: number;
+    previousState: {
+      playerCash: number;
+      playerCertificates: Certificate[];
+      corporationShares: Certificate[];
+      ipoShares: Certificate[];
+      bankShares: Certificate[];
+      purchasedCertificate?: Certificate;
+    };
+  };
 }
 
 export interface GameAction {

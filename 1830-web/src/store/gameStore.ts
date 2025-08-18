@@ -1,28 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { GameState, Player, GameAction, AuctionState, PlayerBid, PrivateCompanyState, OwnedPrivateCompany, AuctionSummary, Corporation, Certificate, Point } from '../types/game';
+import type { GameState, Player, GameAction, AuctionState, PlayerBid, PrivateCompanyState, OwnedPrivateCompany, AuctionSummary, Corporation, Certificate, Point, StockAction } from '../types/game';
 import { RoundType, ActionType } from '../types/game';
-import { GAME_CONSTANTS, PRIVATE_COMPANIES, CORPORATIONS } from '../types/constants';
+import { GAME_CONSTANTS, PRIVATE_COMPANIES, CORPORATIONS, STOCK_MARKET_GRID } from '../types/constants';
 
 // Helper functions for stock market
 const findParValuePosition = (parValue: number): Point | null => {
-  const stockMarketGrid = [
-    ["60", "67", "71", "76", "82", "90", "100", "112", "125", "142", "160", "180", "200", "225", "250", "275", "300", "325", "350"],
-    ["53", "60", "66", "70", "76", "82", "90", "100", "112", "125", "142", "160", "180", "200", "220", "240", "260", "280", "300"],
-    ["46", "55", "60", "65", "70", "76", "82", "90", "100", "111", "125", "140", "155", "170", "185", "200", null, null, null],
-    ["39", "48", "54", "60", "66", "71", "76", "82", "90", "100", "110", "120", "130", null, null, null, null, null, null],
-    ["32", "41", "48", "55", "62", "67", "71", "76", "82", "90", "100", null, null, null, null, null, null, null, null],
-    ["25", "34", "42", "50", "58", "65", "67", "71", "75", "80", null, null, null, null, null, null, null, null, null],
-    ["18", "27", "36", "45", "54", "63", "67", "69", "70", null, null, null, null, null, null, null, null, null, null],
-    ["10", "20", "30", "40", "50", "60", "67", "68", null, null, null, null, null, null, null, null, null, null, null],
-    [null, "10", "20", "30", "40", "50", "60", null, null, null, null, null, null, null, null, null, null, null, null],
-    [null, null, "10", "20", "30", "40", "50", null, null, null, null, null, null, null, null, null, null, null, null],
-    [null, null, null, "10", "20", "30", "40", null, null, null, null, null, null, null, null, null, null, null, null]
-  ];
-  
-  for (let row = 0; row < stockMarketGrid.length; row++) {
-    for (let col = 0; col < stockMarketGrid[row].length; col++) {
-      if (stockMarketGrid[row][col] === parValue.toString()) {
+  for (let row = 0; row < STOCK_MARKET_GRID.length; row++) {
+    for (let col = 0; col < STOCK_MARKET_GRID[row].length; col++) {
+      if (STOCK_MARKET_GRID[row][col] === parValue.toString()) {
         return { x: col, y: row };
       }
     }
@@ -50,6 +36,26 @@ const generateInitialIPOShares = (corporationId: string): Certificate[] => {
   }
   
   return shares;
+};
+
+const createCorporationFromTemplate = (corpTemplate: typeof CORPORATIONS[0]): Corporation => {
+  const corporationId = crypto.randomUUID();
+  return {
+    id: corporationId,
+    name: corpTemplate.name,
+    abbreviation: corpTemplate.abbreviation,
+    presidentId: undefined,
+    parValue: undefined,
+    sharePrice: 0,
+    treasury: 0,
+    trains: [],
+    tokens: [],
+    ipoShares: generateInitialIPOShares(corporationId),
+    bankShares: [],
+    playerShares: new Map(),
+    floated: false,
+    color: corpTemplate.color
+  };
 };
 
 interface GameStore extends GameState {
@@ -90,8 +96,10 @@ interface GameStore extends GameState {
   
   // Stock actions
   buyCertificate: (playerId: string, corporationId: string) => boolean;
-  buyPresidentCertificate: (playerId: string, corporationId: string, parValue: number) => boolean;
+  buyPresidentCertificate: (playerId: string, corporationAbbreviation: string, parValue: number) => boolean;
   sellCertificate: (playerId: string, corporationId: string, shares: number) => boolean;
+  undoLastStockAction: () => boolean;
+  nextStockPlayer: () => void;
   
   // Stock price movement
   moveStockPrice: (corporationId: string, direction: 'up' | 'down') => boolean;
@@ -105,22 +113,7 @@ const createInitialState = (): Partial<GameState> => ({
   roundType: RoundType.PRIVATE_AUCTION,
   currentPlayerIndex: 0,
   players: [],
-  corporations: CORPORATIONS.map(corpTemplate => ({
-    id: crypto.randomUUID(),
-    name: corpTemplate.name,
-    abbreviation: corpTemplate.abbreviation,
-    presidentId: undefined,
-    parValue: undefined,
-    sharePrice: 0,
-    treasury: 0,
-    trains: [],
-    tokens: [],
-    ipoShares: generateInitialIPOShares(corpTemplate.abbreviation),
-    bankShares: [],
-    playerShares: new Map(),
-    floated: false,
-    color: corpTemplate.color
-  })),
+  corporations: CORPORATIONS.map(createCorporationFromTemplate),
   stockMarket: {
     tokenPositions: new Map(),
     grid: []
@@ -228,22 +221,7 @@ export const useGameStore = create<GameStore>()(
     };
 
     // Initialize corporations with IPO shares
-    const corporations: Corporation[] = CORPORATIONS.map(corpTemplate => ({
-      id: crypto.randomUUID(),
-      name: corpTemplate.name,
-      abbreviation: corpTemplate.abbreviation,
-      presidentId: undefined,
-      parValue: undefined,
-      sharePrice: 0,
-      treasury: 0,
-      trains: [],
-      tokens: [],
-      ipoShares: generateInitialIPOShares(corpTemplate.abbreviation),
-      bankShares: [],
-      playerShares: new Map(),
-      floated: false,
-      color: corpTemplate.color
-    }));
+    const corporations: Corporation[] = CORPORATIONS.map(createCorporationFromTemplate);
 
     return {
       ...initialState,
@@ -556,7 +534,11 @@ export const useGameStore = create<GameStore>()(
       roundType: RoundType.STOCK,
       auctionSummary: undefined,
       resolvingCompanyId: undefined,
-      currentPlayerIndex: 0
+      currentPlayerIndex: 0,
+      stockRoundState: {
+        currentPlayerActions: [],
+        turnStartTime: Date.now()
+      }
     }));
   },
 
@@ -647,65 +629,298 @@ export const useGameStore = create<GameStore>()(
   },
 
   buyCertificate: (playerId, corporationId) => {
+    console.log('=== buyCertificate called ===');
+    console.log('playerId:', playerId);
+    console.log('corporationId:', corporationId);
+    
     const state = get();
+    console.log('state.players:', state.players);
+    console.log('state.corporations:', state.corporations);
+    
     const player = state.players.find(p => p.id === playerId);
     const corporation = state.corporations.find(c => c.id === corporationId);
     
-    if (!player || !corporation) return false;
+    console.log('found player:', player);
+    console.log('found corporation:', corporation);
+    
+    if (!player || !corporation) {
+      console.log('Player or corporation not found, returning false');
+      return false;
+    }
+    
+    console.log('corporation.ipoShares.length:', corporation.ipoShares.length);
+    console.log('corporation.sharePrice:', corporation.sharePrice);
+    console.log('player.cash:', player.cash);
+    console.log('player.certificates.length:', player.certificates.length);
     
     // Check if corporation has IPO shares available
-    if (corporation.ipoShares.length === 0) return false;
+    if (corporation.ipoShares.length === 0) {
+      console.log('No IPO shares available, returning false');
+      return false;
+    }
     
     // Check if player can afford the share
-    if (player.cash < corporation.sharePrice) return false;
+    if (player.cash < corporation.sharePrice) {
+      get().addNotification({
+        title: 'Insufficient Funds',
+        message: `${player.name} doesn't have enough money to buy a share for $${corporation.sharePrice}`,
+        type: 'warning',
+        duration: 3000
+      });
+      return false;
+    }
     
     // Check certificate limit
     const certificateLimit = GAME_CONSTANTS.CERTIFICATE_LIMIT[state.players.length as keyof typeof GAME_CONSTANTS.CERTIFICATE_LIMIT] || 11;
-    if (player.certificates.length >= certificateLimit) return false;
+    if (player.certificates.length >= certificateLimit) {
+      get().addNotification({
+        title: 'Certificate Limit Reached',
+        message: `${player.name} has reached the maximum number of certificates (${certificateLimit})`,
+        type: 'warning',
+        duration: 3000
+      });
+      return false;
+    }
+    
+    console.log('All checks passed, proceeding with purchase');
+    console.log('corporation.ipoShares before pop:', corporation.ipoShares);
     
     // Transfer money and certificate
     const certificate = corporation.ipoShares.pop()!;
+    console.log('popped certificate:', certificate);
     certificate.corporationId = corporation.id; // Ensure correct ID
     
+    // Record previous state for undo (after certificate is created)
+    const previousState = {
+      playerCash: player.cash,
+      playerCertificates: [...player.certificates], // Track player's certificates before purchase
+      corporationShares: [...(corporation.playerShares.get(playerId) || [])],
+      ipoShares: [...corporation.ipoShares],
+      bankShares: [...corporation.bankShares],
+      purchasedCertificate: certificate // Track the specific certificate purchased
+    };
+    
+    set((state) => {
+      // Check if this purchase would make the buyer the new president
+      const buyerCurrentShares = state.corporations.find(c => c.id === corporationId)?.playerShares.get(playerId) || [];
+      const buyerTotalShares = buyerCurrentShares.length + 1; // +1 for the new certificate
+      
+      const currentPresident = state.corporations.find(c => c.id === corporationId)?.presidentId;
+      const presidentShares = currentPresident ? 
+        (state.corporations.find(c => c.id === corporationId)?.playerShares.get(currentPresident) || []).length : 0;
+      
+      let newPresidentId = currentPresident;
+      let presidentTransfer = false;
+      
+            // Check if this purchase would make the buyer the new president
+      // Compare TOTAL ownership percentages (including President's Certificate)
+      const currentPresidentShares = currentPresident ? corporation.playerShares.get(currentPresident) || [] : [];
+      const currentPresidentTotalPercentage = currentPresidentShares.reduce((sum, cert) => sum + cert.percentage, 0);
+      
+      const buyerSharesAfterPurchase = buyerCurrentShares.length + 1; // +1 for the new certificate
+      const buyerTotalPercentage = buyerSharesAfterPurchase * 10; // Each share is 10%
+      
+      console.log(`Presidency check: Buyer will have ${buyerTotalPercentage}% (${buyerSharesAfterPurchase} shares), current president has ${currentPresidentTotalPercentage}% (${currentPresidentShares.length} shares)`);
+      
+      // If buyer would have MORE percentage than current president, transfer presidency
+      if (buyerTotalPercentage > currentPresidentTotalPercentage && currentPresident !== playerId) {
+        newPresidentId = playerId;
+        presidentTransfer = true;
+        
+        console.log(`Presidency transfer triggered: Buyer will have ${buyerTotalPercentage}% (${buyerSharesAfterPurchase} shares), current president has ${currentPresidentTotalPercentage}% (${currentPresidentShares.length} shares)`);
+        
+        // Add notification for presidency transfer
+        const oldPresident = state.players.find(p => p.id === currentPresident);
+        if (oldPresident) {
+          get().addNotification({
+            title: corporation.name,
+            message: `${player.name} stole the presidency from ${oldPresident.name} by buying more shares!`,
+            type: 'warning',
+            duration: 4000
+          });
+        }
+      } else {
+        console.log(`No presidency transfer: Buyer will have ${buyerTotalPercentage}% (${buyerSharesAfterPurchase} shares), current president has ${currentPresidentTotalPercentage}% (${currentPresidentShares.length} shares)`);
+      }
+      
+      // Handle President's Certificate transfer if presidency is changing
+      let updatedPlayerShares = new Map(corporation.playerShares);
+      
+      if (presidentTransfer && currentPresident && currentPresident !== playerId) {
+        // Find the President's Certificate from the old president
+        const oldPresidentShares = updatedPlayerShares.get(currentPresident) || [];
+        const presidentCert = oldPresidentShares.find(cert => cert.isPresident);
+        
+        if (presidentCert) {
+          // Remove President's Certificate from old president
+          const oldPresidentRemainingShares = oldPresidentShares.filter(cert => !cert.isPresident);
+          
+          // NEW PRESIDENT gives 2 of their EXISTING shares to OLD PRESIDENT in exchange for President's Certificate
+          const buyerShares = updatedPlayerShares.get(playerId) || [];
+          
+          // Take 2 shares from the new president's EXISTING shares (before the new purchase)
+          const sharesToGiveToOldPresident = buyerShares.slice(0, 2); // Take first 2 existing shares
+          const newPresidentRemainingShares = buyerShares.slice(2); // Keep remaining existing shares
+          
+          // New president gets: remaining existing shares + new purchase + President's Certificate
+          const newPresidentFinalShares = [...newPresidentRemainingShares, certificate, presidentCert];
+          
+          // Old president gets their remaining shares plus 2 shares from new president
+          const oldPresidentFinalShares = [...oldPresidentRemainingShares, ...sharesToGiveToOldPresident];
+          
+          // Update the player shares
+          updatedPlayerShares.set(playerId, newPresidentFinalShares);
+          updatedPlayerShares.set(currentPresident, oldPresidentFinalShares);
+          
+          console.log(`President's Certificate exchange: New president gives 2 shares to old president, gets President's Certificate`);
+          console.log(`New president: ${newPresidentFinalShares.length} shares + President's Certificate (${newPresidentFinalShares.length * 10 + 20}% total)`);
+          console.log(`Old president: ${oldPresidentFinalShares.length} shares (${oldPresidentFinalShares.length * 10}% total)`);
+        } else {
+          // No President's Certificate found, just add the new certificate
+          const buyerShares = updatedPlayerShares.get(playerId) || [];
+          updatedPlayerShares.set(playerId, [...buyerShares, certificate]);
+        }
+      } else {
+        // No presidency transfer, just add the new certificate
+        const buyerShares = updatedPlayerShares.get(playerId) || [];
+        updatedPlayerShares.set(playerId, [...buyerShares, certificate]);
+      }
+      
+      return {
+        players: state.players.map(p => 
+          p.id === playerId 
+            ? { ...p, cash: p.cash - corporation.sharePrice, certificates: [...p.certificates, certificate] }
+            : p
+        ),
+        corporations: state.corporations.map(c => 
+          c.id === corporationId 
+            ? { 
+                ...c, 
+                presidentId: newPresidentId,
+                ipoShares: [...c.ipoShares],
+                playerShares: updatedPlayerShares
+              }
+            : c
+        )
+      };
+    });
+    
+    // Record the action for undo
+    const stockAction: StockAction = {
+      id: crypto.randomUUID(),
+      playerId,
+      type: 'buy_certificate',
+      timestamp: Date.now(),
+      data: {
+        corporationId,
+        previousState
+      }
+    };
+    
     set((state) => ({
-      players: state.players.map(p => 
-        p.id === playerId 
-          ? { ...p, cash: p.cash - corporation.sharePrice, certificates: [...p.certificates, certificate] }
-          : p
-      ),
-      corporations: state.corporations.map(c => 
-        c.id === corporationId 
-          ? { 
-              ...c, 
-              ipoShares: [...c.ipoShares],
-              playerShares: new Map([
-                ...c.playerShares,
-                [playerId, [...(c.playerShares.get(playerId) || []), certificate]]
-              ])
-            }
-          : c
-      )
+      stockRoundState: {
+        currentPlayerActions: [...(state.stockRoundState?.currentPlayerActions || []), stockAction],
+        turnStartTime: state.stockRoundState?.turnStartTime || Date.now()
+      }
     }));
+    
+    // Add notification
+    get().addNotification({
+      title: corporation.name,
+      message: `${player.name} bought ${certificate.percentage === 20 ? '2 shares' : '1 share'} for $${corporation.sharePrice}`,
+      type: 'purchase',
+      duration: 3000
+    });
     
     return true;
   },
 
   sellCertificate: (playerId, corporationId, shares) => {
+    console.log('=== sellCertificate called ===');
+    console.log('playerId:', playerId);
+    console.log('corporationId:', corporationId);
+    console.log('shares:', shares);
+    
     const state = get();
     const player = state.players.find(p => p.id === playerId);
     const corporation = state.corporations.find(c => c.id === corporationId);
     
-    if (!player || !corporation) return false;
+    if (!player || !corporation) {
+      console.log('Player or corporation not found');
+      return false;
+    }
     
-    // Check if player has enough certificates
-    const playerCerts = player.certificates.filter(cert => cert.corporationId === corporationId);
-    if (playerCerts.length < shares) return false;
+    console.log('Player:', player.name);
+    console.log('Corporation:', corporation.name);
+    
+    // Check if player has enough certificates (check corporation's playerShares map)
+    const playerCerts = corporation.playerShares.get(playerId) || [];
+    console.log('Player certificates for this corporation (from playerShares):', playerCerts.length);
+    console.log('Player certificates (from player.certificates):', player.certificates.length);
+    console.log('Shares requested to sell:', shares);
+    if (playerCerts.length < shares) {
+      console.log('Player does not have enough certificates');
+      return false;
+    }
+    
+    // Check President's Certificate rules
+    const playerIsPresident = corporation.presidentId === playerId;
+    const presidentCert = playerCerts.find(cert => cert.isPresident);
+    
+    // President's Certificate can never be sold directly - it can only be transferred
+    if (presidentCert) {
+      console.log('Player has President\'s Certificate, checking if they can sell');
+      // Check if any other player has at least 2 shares to become president
+      let hasOtherPlayerWithTwoShares = false;
+      for (const [otherPlayerId, otherPlayerCerts] of corporation.playerShares.entries()) {
+        console.log(`Player ${otherPlayerId} has ${otherPlayerCerts.length} shares`);
+        if (otherPlayerId !== playerId && otherPlayerCerts.length >= 2) {
+          hasOtherPlayerWithTwoShares = true;
+          console.log(`Player ${otherPlayerId} has enough shares to become president`);
+          break;
+        }
+      }
+      
+      // If no other player has at least 2 shares, cannot sell
+      if (!hasOtherPlayerWithTwoShares) {
+        console.log('No other player has enough shares, showing notification');
+        // Add notification explaining why they can't sell
+        get().addNotification({
+          title: 'Cannot Sell President\'s Certificate',
+          message: 'You cannot sell shares because no other player has enough shares to become president. The President\'s Certificate can only be transferred, never sold directly.',
+          type: 'warning',
+          duration: 5000
+        });
+        return false; // Cannot sell President's Certificate if no one else can become president
+      } else {
+        console.log('Another player has enough shares, allowing sale');
+      }
+    }
     
     // Calculate total value
     const totalValue = corporation.sharePrice * shares;
     
+    // Record previous state for undo
+    const previousState = {
+      playerCash: player.cash,
+      playerCertificates: [...player.certificates],
+      corporationShares: [...(corporation.playerShares.get(playerId) || [])],
+      ipoShares: [...corporation.ipoShares],
+      bankShares: [...corporation.bankShares]
+    };
+    
     // Remove certificates from player and add to bank pool
-    const certsToRemove = playerCerts.slice(0, shares);
+    // President's Certificate cannot be sold directly - only regular certificates
+    const regularCerts = playerCerts.filter(cert => !cert.isPresident);
+    const presidentCerts = playerCerts.filter(cert => cert.isPresident);
+    
+    // Can only sell regular certificates
+    if (shares > regularCerts.length) {
+      return false; // Cannot sell more shares than regular certificates available
+    }
+    
+    const certsToRemove = regularCerts.slice(0, shares);
+    
     const remainingCerts = player.certificates.filter(cert => 
       !certsToRemove.some(removeCert => 
         removeCert.corporationId === cert.corporationId && 
@@ -714,96 +929,422 @@ export const useGameStore = create<GameStore>()(
       )
     );
     
+    // Check if this sale would cause president transfer BEFORE the sale
+    // Calculate what the seller will have after the sale
+    // Remove shares from regular certificates first, keep President's Certificate if possible
+    const remainingRegularCerts = regularCerts.slice(0, regularCerts.length - shares);
+    const sellerRemainingShares = [...remainingRegularCerts, ...presidentCerts];
+    
+    console.log('PlayerCerts before sale:', playerCerts.length);
+    console.log('Shares being sold:', shares);
+    console.log('SellerRemainingShares after sale:', sellerRemainingShares.length);
+    console.log('SellerRemainingShares breakdown:', sellerRemainingShares.map(cert => `${cert.isPresident ? 'President' : 'Regular'} (${cert.percentage}%)`));
+    const sellerIsPresident = corporation.presidentId === playerId;
+    
+    console.log('Presidency transfer check:', { sellerIsPresident, presidentCertsLength: presidentCerts.length, sellerId: playerId, presidentId: corporation.presidentId });
+    
+    if (sellerIsPresident && presidentCerts.length > 0) {
+      // Find the player with the most shares after this sale
+      let maxShares = 0;
+      let newPresidentId = corporation.presidentId;
+      
+      // Check all players' shares in this corporation - compare TOTAL ownership percentages
+      for (const [otherPlayerId, otherPlayerCerts] of state.corporations.find(c => c.id === corporationId)?.playerShares.entries() || []) {
+        if (otherPlayerId === playerId) {
+          // This is the seller - use their remaining shares after sale
+          const sellerTotalPercentage = sellerRemainingShares.reduce((sum, cert) => sum + cert.percentage, 0);
+          if (sellerTotalPercentage > maxShares) {
+            maxShares = sellerTotalPercentage;
+            newPresidentId = otherPlayerId;
+          }
+        } else {
+          // Other players - use their current shares
+          const otherPlayerTotalPercentage = otherPlayerCerts.reduce((sum, cert) => sum + cert.percentage, 0);
+          if (otherPlayerTotalPercentage > maxShares) {
+            maxShares = otherPlayerTotalPercentage;
+            newPresidentId = otherPlayerId;
+          }
+        }
+      }
+      
+      // If the seller will still have the most shares after the sale, no transfer needed
+      if (newPresidentId === playerId) {
+        console.log(`No presidency transfer needed: Seller will still have the most shares (${maxShares})`);
+        return false;
+      }
+      
+      // If seller would no longer have the most shares, transfer presidency BEFORE the sale
+      // Only transfer if the new president has MORE shares (not equal)
+      if (newPresidentId && newPresidentId !== playerId) {
+        const sellerSharesAfterSale = sellerRemainingShares.reduce((sum, cert) => sum + cert.percentage, 0);
+        const newPresidentShares = state.corporations.find(c => c.id === corporationId)?.playerShares.get(newPresidentId)?.reduce((sum, cert) => sum + cert.percentage, 0) || 0;
+        
+        console.log(`Presidency transfer check: Seller will have ${sellerSharesAfterSale}%, New president has ${newPresidentShares}%`);
+        
+        if (newPresidentShares > sellerSharesAfterSale) {
+          console.log(`Presidency will transfer: ${newPresidentShares} > ${sellerSharesAfterSale}`);
+        } else {
+          console.log(`No presidency transfer: ${newPresidentShares} <= ${sellerSharesAfterSale} (tie or seller still has more)`);
+          return false; // Don't transfer presidency if it's a tie or seller still has more
+        }
+        
+        const presidentCert = presidentCerts[0]; // There should only be one President's Certificate
+        
+        // Update player shares map - transfer President's Certificate before sale
+        const updatedPlayerShares = new Map(state.corporations.find(c => c.id === corporationId)?.playerShares || []);
+        
+        // NEW PRESIDENT gives 2 of their shares to SELLER in exchange for President's Certificate
+        const existingNewPresidentShares = updatedPlayerShares.get(newPresidentId) || [];
+        
+        // Take 2 shares from the new president to give to seller
+        const newPresidentSharesAfterExchange = existingNewPresidentShares.slice(0, existingNewPresidentShares.length - 2);
+        const sharesToGiveToSeller = existingNewPresidentShares.slice(existingNewPresidentShares.length - 2);
+        
+        // Seller gets their remaining regular shares plus 2 shares from new president
+        const sellerRegularShares = sellerRemainingShares.filter(cert => !cert.isPresident);
+        const sellerFinalShares = [...sellerRegularShares, ...sharesToGiveToSeller];
+        
+        // New president gets President's Certificate plus remaining shares
+        updatedPlayerShares.set(playerId, sellerFinalShares);
+        updatedPlayerShares.set(newPresidentId, [...newPresidentSharesAfterExchange, presidentCert]);
+        
+        console.log(`After exchange: Seller will have ${sellerFinalShares.length} shares (${sellerRegularShares.length} regular + 2 from new president)`);
+        console.log(`After exchange: New president will have ${newPresidentSharesAfterExchange.length + 1} shares (${newPresidentSharesAfterExchange.length} remaining + 1 President's Certificate)`);
+        
+        // Update the remaining certificates to reflect the transfer
+        const finalRemainingCerts = remainingCerts.filter(cert => !cert.isPresident);
+        
+        // Add notification for president transfer
+        const newPresident = state.players.find(p => p.id === newPresidentId);
+        if (newPresident) {
+          get().addNotification({
+            title: corporation.name,
+            message: `${player.name} dumps ${corporation.name}. ${newPresident.name} is now president.`,
+            type: 'warning',
+            duration: 3000
+          });
+        }
+        
+        set((state) => ({
+          players: state.players.map(p => 
+            p.id === playerId 
+              ? { ...p, cash: p.cash + totalValue, certificates: finalRemainingCerts }
+              : p
+          ),
+          corporations: state.corporations.map(c => 
+            c.id === corporationId 
+              ? { 
+                  ...c, 
+                  presidentId: newPresidentId,
+                  bankShares: [...c.bankShares, ...certsToRemove],
+                  playerShares: updatedPlayerShares
+                }
+              : c
+          ),
+          stockRoundState: {
+            currentPlayerActions: [...(state.stockRoundState?.currentPlayerActions || []), {
+              id: crypto.randomUUID(),
+              playerId,
+              type: 'sell_certificate',
+              timestamp: Date.now(),
+              data: {
+                corporationId,
+                shares,
+                previousState
+              }
+            }],
+            turnStartTime: state.stockRoundState?.turnStartTime || Date.now()
+          }
+        }));
+        
+        return true;
+      }
+    }
+    
+    // No president transfer occurred - proceed with normal sale
+    set((state) => {
+      const updatedPlayerShares = new Map(state.corporations.find(c => c.id === corporationId)?.playerShares || []);
+      // Use the correct remaining shares for this corporation
+      const remainingSharesForCorp = playerCerts.slice(0, playerCerts.length - shares);
+      updatedPlayerShares.set(playerId, remainingSharesForCorp);
+      
+      return {
+        players: state.players.map(p => 
+          p.id === playerId 
+            ? { ...p, cash: p.cash + totalValue, certificates: remainingCerts }
+            : p
+        ),
+        corporations: state.corporations.map(c => 
+          c.id === corporationId 
+            ? { 
+                ...c, 
+                bankShares: [...c.bankShares, ...certsToRemove],
+                playerShares: updatedPlayerShares
+              }
+            : c
+        )
+      };
+    });
+    
+    // Record the action for undo
+    const stockAction: StockAction = {
+      id: crypto.randomUUID(),
+      playerId,
+      type: 'sell_certificate',
+      timestamp: Date.now(),
+      data: {
+        corporationId,
+        shares,
+        previousState
+      }
+    };
+    
     set((state) => ({
-      players: state.players.map(p => 
-        p.id === playerId 
-          ? { ...p, cash: p.cash + totalValue, certificates: remainingCerts }
-          : p
-      ),
-      corporations: state.corporations.map(c => 
-        c.id === corporationId 
-          ? { 
-              ...c, 
-              bankShares: [...c.bankShares, ...certsToRemove],
-              playerShares: new Map([
-                ...c.playerShares,
-                [playerId, remainingCerts.filter(cert => cert.corporationId === corporationId)]
-              ])
-            }
-          : c
-      )
+      stockRoundState: {
+        currentPlayerActions: [...(state.stockRoundState?.currentPlayerActions || []), stockAction],
+        turnStartTime: state.stockRoundState?.turnStartTime || Date.now()
+      }
     }));
+    
+    // Add notification
+    get().addNotification({
+      title: corporation.name,
+      message: `${player.name} sold ${shares} share${shares > 1 ? 's' : ''} for $${totalValue}`,
+      type: 'info',
+      duration: 3000
+    });
     
     return true;
   },
 
-  buyPresidentCertificate: (playerId, corporationId, parValue) => {
+  buyPresidentCertificate: (playerId, corporationAbbreviation, parValue) => {
     const state = get();
     const player = state.players.find(p => p.id === playerId);
     
     if (!player) return false;
     
-    // Find the corporation template
-    const corpTemplate = CORPORATIONS.find(c => c.abbreviation === corporationId);
-    if (!corpTemplate) return false;
+    // Find the existing corporation (it should already exist but not be floated)
+    const existingCorporation = state.corporations.find(c => c.abbreviation === corporationAbbreviation);
+    if (!existingCorporation) return false;
     
     // Check if corporation is already floated
-    if (state.corporations.some(c => c.abbreviation === corporationId)) return false;
+    if (existingCorporation.floated) return false;
     
     // Calculate president certificate cost (20% of par value)
-    const presidentCost = parValue * (GAME_CONSTANTS.PRESIDENT_SHARE_PERCENTAGE / 100);
-    if (player.cash < presidentCost) return false;
+    const presidentCost = parValue * 2; // President's Certificate represents 2 shares (20% ownership)
+    if (player.cash < presidentCost) {
+      get().addNotification({
+        title: 'Insufficient Funds',
+        message: `${player.name} doesn't have enough money to buy the President's Certificate for $${presidentCost}`,
+        type: 'warning',
+        duration: 3000
+      });
+      return false;
+    }
     
     // Find the par value position on the stock market
     const parValuePosition = findParValuePosition(parValue);
     if (!parValuePosition) return false;
     
-    // Create the corporation
-    const newCorporation: Corporation = {
-      id: crypto.randomUUID(),
-      name: corpTemplate.name,
-      abbreviation: corpTemplate.abbreviation,
-      presidentId: playerId,
-      parValue: parValue,
-      sharePrice: parValue,
-      treasury: 0,
-      trains: [],
-      tokens: [],
-      ipoShares: generateInitialIPOShares(corpTemplate.abbreviation),
-      bankShares: [],
-      playerShares: new Map(),
-      floated: true,
-      color: corpTemplate.color
-    };
-    
-    // Create president certificate
-    const presidentCertificate: Certificate = {
-      corporationId: newCorporation.id,
-      percentage: GAME_CONSTANTS.PRESIDENT_SHARE_PERCENTAGE,
-      isPresident: true
-    };
+    // Find the president certificate from the existing IPO pool
+    const presidentCertificate = existingCorporation.ipoShares.find(cert => cert.isPresident);
+    if (!presidentCertificate) return false;
     
     set((state) => ({
       players: state.players.map(p => 
         p.id === playerId 
           ? { 
               ...p, 
-              cash: p.cash - presidentCost, 
-              certificates: [...p.certificates, presidentCertificate] 
+              cash: p.cash - presidentCost
             }
           : p
       ),
-      corporations: [...state.corporations, newCorporation],
+      corporations: state.corporations.map(c => 
+        c.id === existingCorporation.id 
+          ? {
+              ...c,
+              presidentId: playerId,
+              parValue: parValue,
+              sharePrice: parValue,
+              floated: true,
+              ipoShares: c.ipoShares.filter(cert => !cert.isPresident), // Remove president cert from IPO
+              playerShares: new Map([[playerId, [presidentCertificate]]]) // Add president cert only
+            }
+          : c
+      ),
       stockMarket: {
         ...state.stockMarket,
         tokenPositions: new Map([
           ...state.stockMarket.tokenPositions,
-          [newCorporation.id, parValuePosition]
+          [existingCorporation.id, parValuePosition]
         ])
       }
     }));
     
+    // Record the action for undo
+    const stockAction: StockAction = {
+      id: crypto.randomUUID(),
+      playerId,
+      type: 'start_corporation',
+      timestamp: Date.now(),
+      data: {
+        corporationAbbreviation,
+        parValue,
+        previousState: {
+          playerCash: player.cash + presidentCost, // Cash before purchase
+          playerCertificates: [...player.certificates],
+          corporationShares: [],
+          ipoShares: [],
+          bankShares: []
+        }
+      }
+    };
+    
+    set((state) => ({
+      stockRoundState: {
+        currentPlayerActions: [...(state.stockRoundState?.currentPlayerActions || []), stockAction],
+        turnStartTime: state.stockRoundState?.turnStartTime || Date.now()
+      }
+    }));
+    
+    // Add notification
+    get().addNotification({
+      title: existingCorporation.name,
+      message: `${player.name} started ${existingCorporation.name} at par value $${parValue} (bought 2 shares for $${presidentCost})`,
+      type: 'purchase',
+      duration: 3000
+    });
+    
     return true;
+  },
+
+  undoLastStockAction: () => {
+    const state = get();
+    if (!state.stockRoundState || state.stockRoundState.currentPlayerActions.length === 0) {
+      return false;
+    }
+
+    const lastAction = state.stockRoundState.currentPlayerActions[state.stockRoundState.currentPlayerActions.length - 1];
+    const player = state.players.find(p => p.id === lastAction.playerId);
+    if (!player) return false;
+
+    set((state) => {
+      const newState = { ...state };
+      
+      // Restore player cash and certificates
+      newState.players = state.players.map(p => 
+        p.id === lastAction.playerId 
+          ? { ...p, cash: lastAction.data.previousState.playerCash, certificates: lastAction.data.previousState.playerCertificates }
+          : p
+      );
+
+      // Restore corporation state
+      if (lastAction.type === 'start_corporation') {
+        // Handle start_corporation undo - revert corporation to unfloated state
+        newState.corporations = state.corporations.map(corp => {
+          if (corp.abbreviation === lastAction.data.corporationAbbreviation) {
+            return {
+              ...corp,
+              presidentId: undefined,
+              parValue: undefined,
+              sharePrice: 0,
+              floated: false,
+              ipoShares: generateInitialIPOShares(corp.id), // Restore all IPO shares
+              playerShares: new Map() // Clear player shares
+            };
+          }
+          return corp;
+        });
+      } else if (lastAction.data.corporationId) {
+        // Handle regular certificate actions
+        newState.corporations = state.corporations.map(corp => {
+          if (corp.id === lastAction.data.corporationId) {
+            // Get current player shares map
+            const currentPlayerShares = new Map(corp.playerShares);
+            
+            // Get the current player's shares
+            const currentShares = currentPlayerShares.get(lastAction.playerId) || [];
+            
+            // Remove only the specific certificate that was purchased this turn
+            const purchasedCert = lastAction.data.previousState.purchasedCertificate;
+            if (purchasedCert) {
+              // Find the certificate to remove by matching all properties exactly
+              const certToRemove = currentShares.find(cert => 
+                cert.corporationId === purchasedCert.corporationId && 
+                cert.percentage === purchasedCert.percentage && 
+                cert.isPresident === purchasedCert.isPresident
+              );
+              
+              if (certToRemove) {
+                // Remove only this specific certificate
+                const remainingShares = currentShares.filter(cert => cert !== certToRemove);
+                
+                // Update the player's shares
+                if (remainingShares.length > 0) {
+                  currentPlayerShares.set(lastAction.playerId, remainingShares);
+                } else {
+                  currentPlayerShares.delete(lastAction.playerId);
+                }
+              }
+            }
+            
+            // Add the purchased certificate back to the IPO pool
+            const certToReturn = lastAction.data.previousState.purchasedCertificate;
+            const updatedIPOShares = certToReturn 
+              ? [...lastAction.data.previousState.ipoShares, certToReturn]
+              : lastAction.data.previousState.ipoShares;
+            
+            return {
+              ...corp,
+              ipoShares: updatedIPOShares,
+              bankShares: lastAction.data.previousState.bankShares,
+              playerShares: currentPlayerShares
+            };
+          }
+          return corp;
+        });
+      }
+
+      // Remove the last action
+      newState.stockRoundState = {
+        ...state.stockRoundState!,
+        currentPlayerActions: state.stockRoundState!.currentPlayerActions.slice(0, -1)
+      };
+
+      return newState;
+    });
+
+    // Add notification
+    get().addNotification({
+      title: 'Action Undone',
+      message: `Undid ${lastAction.type} for ${player.name}`,
+      type: 'info',
+      duration: 2000
+    });
+
+    return true;
+  },
+
+  nextStockPlayer: () => {
+    const state = get();
+    const nextPlayerIndex = (state.currentPlayerIndex + 1) % state.players.length;
+    
+    set((state) => ({
+      currentPlayerIndex: nextPlayerIndex,
+      stockRoundState: {
+        currentPlayerActions: [],
+        turnStartTime: Date.now()
+      }
+    }));
+
+    // Add notification
+    const nextPlayer = state.players[nextPlayerIndex];
+    get().addNotification({
+      title: 'Stock Round',
+      message: `${nextPlayer.name}'s turn`,
+      type: 'info',
+      duration: 2000
+    });
   },
 
   // Bid-off methods
@@ -974,19 +1515,7 @@ export const useGameStore = create<GameStore>()(
     const currentPosition = state.stockMarket.tokenPositions.get(corporationId);
     if (!currentPosition) return false;
     
-    const stockMarketGrid = [
-      ["60", "67", "71", "76", "82", "90", "100", "112", "125", "142", "160", "180", "200", "225", "250", "275", "300", "325", "350"],
-      ["53", "60", "66", "70", "76", "82", "90", "100", "112", "125", "142", "160", "180", "200", "220", "240", "260", "280", "300"],
-      ["46", "55", "60", "65", "70", "76", "82", "90", "100", "111", "125", "140", "155", "170", "185", "200", null, null, null],
-      ["39", "48", "54", "60", "66", "71", "76", "82", "90", "100", "110", "120", "130", null, null, null, null, null, null],
-      ["32", "41", "48", "55", "62", "67", "71", "76", "82", "90", "100", null, null, null, null, null, null, null, null],
-      ["25", "34", "42", "50", "58", "65", "67", "71", "75", "80", null, null, null, null, null, null, null, null, null],
-      ["18", "27", "36", "45", "54", "63", "67", "69", "70", null, null, null, null, null, null, null, null, null, null],
-      ["10", "20", "30", "40", "50", "60", "67", "68", null, null, null, null, null, null, null, null, null, null, null],
-      [null, "10", "20", "30", "40", "50", "60", null, null, null, null, null, null, null, null, null, null, null, null],
-      [null, null, "10", "20", "30", "40", "50", null, null, null, null, null, null, null, null, null, null, null, null],
-      [null, null, null, "10", "20", "30", "40", null, null, null, null, null, null, null, null, null, null, null, null]
-    ];
+
     
     let newPosition: Point;
     if (direction === 'up') {
@@ -998,14 +1527,14 @@ export const useGameStore = create<GameStore>()(
     }
     
     // Check bounds
-    if (newPosition.y < 0 || newPosition.y >= stockMarketGrid.length || 
-        newPosition.x < 0 || newPosition.x >= stockMarketGrid[newPosition.y].length ||
-        stockMarketGrid[newPosition.y][newPosition.x] === null) {
+    if (newPosition.y < 0 || newPosition.y >= STOCK_MARKET_GRID.length || 
+        newPosition.x < 0 || newPosition.x >= STOCK_MARKET_GRID[newPosition.y].length ||
+        STOCK_MARKET_GRID[newPosition.y][newPosition.x] === null) {
       return false;
     }
     
     // Update position and share price
-    const newPrice = parseInt(stockMarketGrid[newPosition.y][newPosition.x] as string);
+    const newPrice = parseInt(STOCK_MARKET_GRID[newPosition.y][newPosition.x] as string);
     
     set((state) => ({
       corporations: state.corporations.map(c => 

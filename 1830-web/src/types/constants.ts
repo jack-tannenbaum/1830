@@ -17,22 +17,22 @@ export const GAME_CONSTANTS = {
 } as const;
 
 export const TRAIN_DATA: Record<TrainType, { cost: number; maxCities: number; quantity: number }> = {
-  [TrainType.TWO]: { cost: 80, maxCities: 2, quantity: 8 },
-  [TrainType.THREE]: { cost: 180, maxCities: 3, quantity: 7 },
-  [TrainType.FOUR]: { cost: 300, maxCities: 4, quantity: 6 },
-  [TrainType.FIVE]: { cost: 450, maxCities: 5, quantity: 5 },
-  [TrainType.SIX]: { cost: 630, maxCities: 6, quantity: 4 },
-  [TrainType.DIESEL]: { cost: 1100, maxCities: 999, quantity: 4 }
+  [TrainType.TWO]: { cost: 80, maxCities: 2, quantity: 6 },
+  [TrainType.THREE]: { cost: 180, maxCities: 3, quantity: 5 },
+  [TrainType.FOUR]: { cost: 300, maxCities: 4, quantity: 4 },
+  [TrainType.FIVE]: { cost: 450, maxCities: 5, quantity: 3 },
+  [TrainType.SIX]: { cost: 630, maxCities: 6, quantity: 2 },
+  [TrainType.DIESEL]: { cost: 1100, maxCities: 999, quantity: 6 }
 };
 
 export const CORPORATIONS: Omit<Corporation, 'id' | 'presidentId' | 'sharePrice' | 'treasury' | 'trains' | 'tokens' | 'ipoShares' | 'bankShares' | 'playerShares' | 'floated'>[] = [
   { name: 'Pennsylvania Railroad', abbreviation: 'PRR', parValue: undefined, color: '#008000' },
   { name: 'New York Central', abbreviation: 'NYC', parValue: undefined, color: '#000000' },
-  { name: 'Canadian Pacific', abbreviation: 'CPR', parValue: undefined, color: '#FFA500' },
-  { name: 'Baltimore & Ohio', abbreviation: 'B&O', parValue: undefined, color: '#FF0000' },
+  { name: 'Canadian Pacific', abbreviation: 'CPR', parValue: undefined, color: '#FF0000' },
+  { name: 'Baltimore & Ohio', abbreviation: 'B&O', parValue: undefined, color: '#800080' },
   { name: 'Chesapeake & Ohio', abbreviation: 'C&O', parValue: undefined, color: '#0000FF' },
   { name: 'Erie Railroad', abbreviation: 'ERIE', parValue: undefined, color: '#FFFF00' },
-  { name: 'New York, New Haven & Hartford', abbreviation: 'NNH', parValue: undefined, color: '#800080' },
+  { name: 'New York, New Haven & Hartford', abbreviation: 'NNH', parValue: undefined, color: '#FFA500' },
   { name: 'Boston & Maine', abbreviation: 'B&M', parValue: undefined, color: '#8B4513' }
 ];
 
@@ -45,18 +45,34 @@ export const PRIVATE_COMPANIES: Omit<PrivateCompany, 'id'>[] = [
   { name: 'Baltimore & Ohio', cost: 220, revenue: 30, effect: 'The player owning this private company immediately receives the President\'s certificate of the Baltimore & Ohio' }
 ];
 
-export const STOCK_MARKET_GRID: (number | null)[][] = [
-  [null, null, null, null, 70, 80, 90, 100, 112, 126, 142],
-  [null, null, null, 60, 67, 76, 86, 97, 109, 122, 136],
-  [null, null, 50, 55, 62, 70, 78, 87, 96, 106, 117],
-  [null, 40, 45, 50, 55, 62, 68, 75, 82, 90, 99],
-  [null, 35, 40, 45, 50, 55, 60, 65, 70, 76, 82],
-  [null, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75],
-  [null, null, 30, 35, 40, 45, 50, 55, 60, 65, 70],
-  [null, null, null, 30, 35, 40, 45, 50, 55, 60, 65],
-  [null, null, null, null, 30, 35, 40, 45, 50, 55, 60],
-  [null, null, null, null, null, 30, 35, 40, 45, 50, 55]
-];
+export const STOCK_MARKET_GRID = [
+  ["60", "67", "71", "76", "82", "90", "100", "112", "125", "142", "160", "180", "200", "225", "250", "275", "300", "325", "350"],
+  ["53", "60", "66", "70", "76", "82", "90", "100", "112", "125", "142", "160", "180", "200", "220", "240", "260", "280", "300"],
+  ["46", "55", "60", "65", "70", "76", "82", "90", "100", "111", "125", "140", "155", "170", "185", "200", null, null, null],
+  ["39", "48", "54", "60", "66", "71", "76", "82", "90", "100", "110", "120", "130", null, null, null, null, null, null],
+  ["32", "41", "48", "55", "62", "67", "71", "76", "82", "90", "100", null, null, null, null, null, null, null, null],
+  ["25", "34", "42", "50", "58", "65", "67", "71", "75", "80", null, null, null, null, null, null, null, null, null],
+  ["18", "27", "36", "45", "54", "63", "67", "69", "70", null, null, null, null, null, null, null, null, null, null],
+  ["10", "20", "30", "40", "50", "60", "67", "68", null, null, null, null, null, null, null, null, null, null, null],
+  [null, "10", "20", "30", "40", "50", "60", null, null, null, null, null, null, null, null, null, null, null, null],
+  [null, null, "10", "20", "30", "40", "50", null, null, null, null, null, null, null, null, null, null, null, null],
+  [null, null, null, "10", "20", "30", "40", null, null, null, null, null, null, null, null, null, null, null, null]
+] as const;
+
+export const STOCK_MARKET_COLOR_GRID = [
+  ["yellow", "white", "white", "white", "white", "white", "red", "white", "white", "white", "white", "white", "white", "white", "white", "white", "white", "white", "white"],
+  ["yellow", "yellow", "white", "white", "white", "white", "red", "white", "white", "white", "white", "white", "white", "white", "white", "white", "white", "white", "white"],
+  ["yellow", "yellow", "yellow", "white", "white", "white", "red", "white", "white", "white", "white", "white", "white", "white", "white", "white", null, null, null],
+  ["orange", "yellow", "yellow", "yellow", "white", "white", "red", "white", "white", "white", "white", "white", "white", null, null, null, null, null, null],
+  ["orange", "orange", "yellow", "yellow", "white", "white", "red", "white", "white", "white", "white", null, null, null, null, null, null, null, null],
+  ["brown", "orange", "orange", "yellow", "yellow", "white", "red", "white", "white", "white", null, null, null, null, null, null, null, null, null],
+  ["brown", "brown", "orange", "orange", "yellow", "white", "white", "white", "white", null, null, null, null, null, null, null, null, null, null],
+  ["brown", "brown", "brown", "orange", "yellow", "yellow", "white", "white", null, null, null, null, null, null, null, null, null, null, null],
+  [null, "brown", "brown", "brown", "orange", "yellow", "yellow", null, null, null, null, null, null, null, null, null, null, null, null],
+  [null, null, "brown", "brown", "brown", "orange", "yellow", null, null, null, null, null, null, null, null, null, null, null, null],
+  [null, null, null, "brown", "brown", "brown", "orange", null, null, null, null, null, null, null, null, null, null, null, null]
+] as const;
+
 
 export const getTrainMaxCities = (trainType: TrainType): number => {
   return TRAIN_DATA[trainType].maxCities;

@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
-import { RoundType } from '../types/game';
+import { RoundType, Corporation } from '../types/game';
 import { PrivateAuction } from './PrivateAuction';
 import { AuctionSummary } from './AuctionSummary';
 import { NotificationPopup } from './NotificationPopup';
 import { useColors } from '../styles/colors';
 import { useThemeStore } from '../store/themeStore';
 import StockRound from './StockRound';
+import { STOCK_MARKET_GRID, STOCK_MARKET_COLOR_GRID } from '../types/constants';
 
 export const GameBoard: React.FC = () => {
   const { 
@@ -26,9 +27,7 @@ export const GameBoard: React.FC = () => {
   const currentPlayer = players[currentPlayerIndex];
   const [showStockMarket, setShowStockMarket] = useState(true);
 
-  // Debug logging
-  console.log('Current theme:', theme);
-  console.log('Current colors:', colors.layout.background);
+
 
   return (
     <div className={`min-h-screen ${colors.layout.background}`} data-theme={theme}>
@@ -150,46 +149,12 @@ export const GameBoard: React.FC = () => {
                   <div className={`${colors.gameBoard.stockMarket.background} p-4 rounded-lg`}>
                     <div className="grid grid-cols-19 gap-1 text-xs">
                       {(() => {
-                        const stockMarketGrid = [
-                          ["60", "67", "71", "76", "82", "90", "100", "112", "125", "142", "160", "180", "200", "225", "250", "275", "300", "325", "350"],
-                          ["53", "60", "66", "70", "76", "82", "90", "100", "112", "125", "142", "160", "180", "200", "220", "240", "260", "280", "300"],
-                          ["46", "55", "60", "65", "70", "76", "82", "90", "100", "111", "125", "140", "155", "170", "185", "200", null, null, null],
-                          ["39", "48", "54", "60", "66", "71", "76", "82", "90", "100", "110", "120", "130", null, null, null, null, null, null],
-                          ["32", "41", "48", "55", "62", "67", "71", "76", "82", "90", "100", null, null, null, null, null, null, null, null],
-                          ["25", "34", "42", "50", "58", "65", "67", "71", "75", "80", null, null, null, null, null, null, null, null, null],
-                          ["18", "27", "36", "45", "54", "63", "67", "69", "70", null, null, null, null, null, null, null, null, null, null],
-                          ["10", "20", "30", "40", "50", "60", "67", "68", null, null, null, null, null, null, null, null, null, null, null],
-                          [null, "10", "20", "30", "40", "50", "60", null, null, null, null, null, null, null, null, null, null, null, null],
-                          [null, null, "10", "20", "30", "40", "50", null, null, null, null, null, null, null, null, null, null, null, null],
-                          [null, null, null, "10", "20", "30", "40", null, null, null, null, null, null, null, null, null, null, null, null]
-                        ];
-
-                        const stockMarketColorGrid = [
-                          ["yellow", "white", "white", "white", "white", "white", "red", "white", "white", "white", "white", "white", "white", "white", "white", "white", "white", "white", "white"],
-                          ["yellow", "yellow", "white", "white", "white", "white", "red", "white", "white", "white", "white", "white", "white", "white", "white", "white", "white", "white", "white"],
-                          ["yellow", "yellow", "yellow", "white", "white", "white", "red", "white", "white", "white", "white", "white", "white", "white", "white", "white", null, null, null],
-                          ["orange", "yellow", "yellow", "yellow", "white", "white", "red", "white", "white", "white", "white", "white", "white", null, null, null, null, null, null],
-                          ["orange", "orange", "yellow", "yellow", "white", "white", "red", "white", "white", "white", "white", null, null, null, null, null, null, null, null],
-                          ["brown", "orange", "orange", "yellow", "yellow", "white", "red", "white", "white", "white", null, null, null, null, null, null, null, null, null],
-                          ["brown", "brown", "orange", "orange", "yellow", "white", "white", "white", "white", null, null, null, null, null, null, null, null, null, null],
-                          ["brown", "brown", "brown", "orange", "yellow", "yellow", "white", "white", null, null, null, null, null, null, null, null, null, null, null],
-                          [null, "brown", "brown", "brown", "orange", "yellow", "yellow", null, null, null, null, null, null, null, null, null, null, null, null],
-                          [null, null, "brown", "brown", "brown", "orange", "yellow", null, null, null, null, null, null, null, null, null, null, null, null],
-                          [null, null, null, "brown", "brown", "brown", "orange", null, null, null, null, null, null, null, null, null, null, null, null]
-                        ];
 
                                                 const getCellStyle = (value: string | null, rowIndex: number, colIndex: number) => {
                           if (!value) return {};
                           
-                          // Check if any corporation is at this position
-                          const hasCorporation = Array.from(stockMarket.tokenPositions.values()).some(pos => 
-                            pos.x === colIndex && pos.y === rowIndex
-                          );
-                          
-                          if (hasCorporation) return { backgroundColor: 'var(--stock-blue)', border: '2px solid var(--stock-blue-border)' };
-                          
                           // Get color from the color grid
-                          const color = stockMarketColorGrid[rowIndex]?.[colIndex];
+                          const color = STOCK_MARKET_COLOR_GRID[rowIndex]?.[colIndex];
                           if (!color) return {};
                           
                           // Map color names to CSS variables
@@ -203,19 +168,90 @@ export const GameBoard: React.FC = () => {
                           }
                         };
 
+                        const getCorporationsAtPosition = (rowIndex: number, colIndex: number) => {
+                          const corporationsAtPosition: Corporation[] = [];
+                          for (const [corporationId, position] of stockMarket.tokenPositions.entries()) {
+                            if (position.x === colIndex && position.y === rowIndex) {
+                              const corporation = corporations.find(corp => corp.id === corporationId);
+                              if (corporation) {
+                                corporationsAtPosition.push(corporation);
+                              }
+                            }
+                          }
+                          return corporationsAtPosition;
+                        };
 
-
-                        return stockMarketGrid.flatMap((row, rowIndex) => 
-                          row.map((value, colIndex) => (
-                            <div 
-                              key={`${rowIndex}-${colIndex}`} 
-                              className="stock-cell"
-                              style={getCellStyle(value, rowIndex, colIndex)}
-                              title={value ? `$${value}` : ''}
-                            >
-                              {value || ''}
-                            </div>
-                          ))
+                        return STOCK_MARKET_GRID.flatMap((row, rowIndex) => 
+                          row.map((value, colIndex) => {
+                            const corporationsAtPosition = getCorporationsAtPosition(rowIndex, colIndex);
+                            
+                            // Create hover tooltip content
+                            const tooltipContent = value 
+                              ? corporationsAtPosition.length > 0
+                                ? `$${value} - ${corporationsAtPosition.map(corp => `${corp.name} (${corp.abbreviation})`).join(', ')}`
+                                : `$${value}`
+                              : '';
+                            
+                            return (
+                              <div 
+                                key={`${rowIndex}-${colIndex}`} 
+                                className={`stock-cell relative ${corporationsAtPosition.length > 0 ? 'group' : ''}`}
+                                style={getCellStyle(value, rowIndex, colIndex)}
+                                title={corporationsAtPosition.length > 0 ? tooltipContent : (value ? `$${value}` : '')}
+                              >
+                                {value || ''}
+                                {corporationsAtPosition.length > 0 && (
+                                  <>
+                                    <div className="absolute inset-0 flex items-center justify-center gap-1 p-1">
+                                      {corporationsAtPosition.map((corporation, index) => (
+                                        <div 
+                                          key={corporation.id}
+                                          className="flex-shrink-0"
+                                          style={{ 
+                                            backgroundColor: corporation.color,
+                                            borderRadius: '4px',
+                                            padding: '2px 4px',
+                                            fontSize: '8px',
+                                            fontWeight: 'bold',
+                                            color: 'white',
+                                            textShadow: '1px 1px 1px rgba(0,0,0,0.5)',
+                                            minWidth: '16px',
+                                            textAlign: 'center'
+                                          }}
+                                        >
+                                          {corporation.abbreviation}
+                                        </div>
+                                      ))}
+                                    </div>
+                                    
+                                    {/* Hover Popup - only when corporations are present */}
+                                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                                      <div className={`${colors.card.background} ${colors.card.border} rounded-lg shadow-lg p-3 border-2 min-w-max`}>
+                                        <div className={`text-sm font-semibold ${colors.text.primary} mb-2`}>
+                                          ${value} - {corporationsAtPosition.length} corporation{corporationsAtPosition.length > 1 ? 's' : ''}
+                                        </div>
+                                        <div className="space-y-1">
+                                          {corporationsAtPosition.map((corporation) => (
+                                            <div key={corporation.id} className="flex items-center gap-2">
+                                              <div 
+                                                className="w-3 h-3 rounded"
+                                                style={{ backgroundColor: corporation.color }}
+                                              />
+                                              <span className={`text-sm ${colors.text.secondary}`}>
+                                                {corporation.name} ({corporation.abbreviation})
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                      {/* Arrow pointing down */}
+                                      <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800 mx-auto"></div>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })
                         );
                       })()}
                     </div>
@@ -307,26 +343,7 @@ export const GameBoard: React.FC = () => {
               )}
             </div>
 
-            {/* Game Actions - Only show during Stock Round */}
-            {roundType === RoundType.STOCK && (
-              <div className={`${colors.card.backgroundAlt} rounded-lg ${colors.card.shadow} p-4 ${colors.card.borderAlt}`}>
-                <h3 className={`text-lg font-semibold mb-3 ${colors.text.primary}`}>Stock Actions</h3>
-                <div className="space-y-2">
-                  <button className={`w-full py-2 px-3 ${colors.button.primary} rounded transition-colors text-sm`}>
-                    Buy Certificate
-                  </button>
-                  <button className={`w-full py-2 px-3 ${colors.button.danger} rounded transition-colors text-sm`}>
-                    Sell Certificate
-                  </button>
-                  <button className={`w-full py-2 px-3 ${colors.button.success} rounded transition-colors text-sm`}>
-                    Buy President's Certificate
-                  </button>
-                  <button className={`w-full py-2 px-3 ${colors.button.secondary} rounded transition-colors text-sm`}>
-                    Pass
-                  </button>
-                </div>
-              </div>
-            )}
+
           </div>
         </div>
       </div>
