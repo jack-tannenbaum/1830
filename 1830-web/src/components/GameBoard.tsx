@@ -332,9 +332,16 @@ export const GameBoard: React.FC = () => {
                         >
                           {corp.abbreviation}
                         </div>
-                        <div className="flex-1">
-                          <p className={`font-medium text-sm ${colors.corporation.name}`}>{corp.name}</p>
-                          <p className={`text-xs ${colors.corporation.price}`}>${corp.sharePrice}</p>
+                        <div className="flex-1" style={{ lineHeight: '1.2' }}>
+                          <p className={`font-medium text-sm ${colors.corporation.name}`} style={{ margin: '0 0 2px 0' }}>{corp.name}</p>
+                          {corp.presidentId && (
+                            <p className={`text-sm italic ${colors.text.tertiary}`} style={{ margin: '0 0 2px 0' }}>
+                              President: {players.find(p => p.id === corp.presidentId)?.name}
+                            </p>
+                          )}
+                          {corp.parValue && (
+                            <p className={`text-sm italic ${colors.text.tertiary}`} style={{ margin: '0' }}>PAR: ${corp.parValue} | MP: ${corp.sharePrice}</p>
+                          )}
                         </div>
                       </div>
                     </div>

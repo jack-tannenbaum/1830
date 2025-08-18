@@ -251,16 +251,6 @@ const StockRound: React.FC = () => {
               </div>
             </div>
 
-            {/* President */}
-            {corporation.presidentId && (
-              <div className="text-center mb-4">
-                <div className={`text-xs ${colors.text.secondary}`}>President</div>
-                <div className={`text-sm font-semibold ${colors.text.success}`}>
-                  {players.find(p => p.id === corporation.presidentId)?.name}
-                </div>
-              </div>
-            )}
-
             {/* Share Pools */}
             <div className="space-y-3 mb-4">
               <div className="flex justify-between items-center">
@@ -283,29 +273,31 @@ const StockRound: React.FC = () => {
             <div className="mb-4">
               <div className={`text-xs ${colors.text.secondary} mb-2`}>Ownership</div>
               <div className="space-y-1">
-                {players.map(player => {
-                  const playerCerts = corporation.playerShares.get(player.id) || [];
-                  const totalPercentage = playerCerts.reduce((sum, cert) => sum + cert.percentage, 0);
-                  const isPresident = corporation.presidentId === player.id;
-                  
-
-                  
-                  return (
+                {players
+                  .map(player => {
+                    const playerCerts = corporation.playerShares.get(player.id) || [];
+                    const totalPercentage = playerCerts.reduce((sum, cert) => sum + cert.percentage, 0);
+                    const isPresident = corporation.presidentId === player.id;
+                    
+                    return { player, totalPercentage, isPresident };
+                  })
+                  .filter(({ totalPercentage }) => totalPercentage > 0) // Hide players with 0% ownership
+                  .sort((a, b) => b.totalPercentage - a.totalPercentage) // Sort by percentage (highest first)
+                  .map(({ player, totalPercentage, isPresident }) => (
                     <div key={player.id} className="flex justify-between items-center">
-                      <span className={`text-xs ${colors.text.secondary} flex items-center gap-1`}>
+                      <span className={`text-xs ${colors.text.secondary} flex items-center`}>
                         {player.name}
                         {isPresident && (
-                          <span className={`text-xs px-1 py-0.5 rounded ${colors.text.success} bg-green-100 dark:bg-green-900`}>
-                            President
+                          <span className="text-xs font-bold" style={{ color: '#FFD700', marginLeft: '4px' }}>
+                            P
                           </span>
                         )}
                       </span>
                       <span className={`text-xs font-medium ${colors.text.primary}`}>
-                        {totalPercentage > 0 ? `${totalPercentage}%` : '0%'}
+                        {totalPercentage}%
                       </span>
                     </div>
-                  );
-                })}
+                  ))}
               </div>
             </div>
 
