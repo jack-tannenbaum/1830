@@ -6,7 +6,7 @@ import type { Corporation, Certificate } from '../types/game';
 import { StockMarketDisplay } from './StockMarketDisplay';
 
 const StockRound: React.FC = () => {
-  const { corporations, players, currentPlayerIndex, phase, buyCertificate, sellCertificate, buyPresidentCertificate, undoLastStockAction, nextStockPlayer, stockRoundState } = useGameStore();
+  const { corporations, players, currentPlayerIndex, phase, buyCertificate, sellCertificate, undoLastStockAction, nextStockPlayer, stockRoundState } = useGameStore();
   const colors = useColors();
   const [debugFirstStockRound, setDebugFirstStockRound] = React.useState(false);
   const [showParValueModal, setShowParValueModal] = React.useState(false);
@@ -461,7 +461,7 @@ const StockRound: React.FC = () => {
                 onClick={() => {
                   const currentPlayer = players[currentPlayerIndex];
                   if (currentPlayer && selectedCorporation) {
-                    buyPresidentCertificate(currentPlayer.id, selectedCorporation.abbreviation, selectedParValue);
+                    buyCertificate(currentPlayer.id, selectedCorporation.id, selectedParValue);
                   }
                   setShowParValueModal(false);
                   setSelectedCorporation(null);

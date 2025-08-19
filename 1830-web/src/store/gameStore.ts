@@ -106,8 +106,8 @@ interface GameStore extends GameState {
   createAuctionSummary: () => AuctionSummary;
   
   // Stock actions
-  buyCertificate: (playerId: string, corporationId: string) => boolean;
-  buyPresidentCertificate: (playerId: string, corporationAbbreviation: string, parValue: number) => boolean;
+  buyCertificate: (playerId: string, corporationId: string, parValue?: number) => boolean;
+
   sellCertificate: (playerId: string, corporationId: string, shares: number) => boolean;
   undoLastStockAction: () => boolean;
   nextStockPlayer: () => void;
@@ -639,7 +639,7 @@ export const useGameStore = create<GameStore>()(
     }
   },
 
-  buyCertificate: (playerId, corporationId) => {
+  buyCertificate: (playerId, corporationId, parValue?: number) => {
     console.log('=== buyCertificate called ===');
     console.log('playerId:', playerId);
     console.log('corporationId:', corporationId);
@@ -668,6 +668,112 @@ export const useGameStore = create<GameStore>()(
     if (corporation.ipoShares.length === 0) {
       console.log('No IPO shares available, returning false');
       return false;
+    }
+
+    // Handle first purchase (starting corporation)
+    if (!corporation.started) {
+      if (!parValue) {
+        console.log('Par value required for first purchase');
+        return false;
+      }
+      
+      // Find the president certificate
+      const presidentCertificate = corporation.ipoShares.find(cert => cert.isPresident);
+      if (!presidentCertificate) {
+        console.log('No president certificate found');
+        return false;
+      }
+      
+      // Calculate president certificate cost (20% of par value)
+      const presidentCost = parValue * 2; // President's Certificate represents 2 shares (20% ownership)
+      if (player.cash < presidentCost) {
+        get().addNotification({
+          title: 'Insufficient Funds',
+          message: `${player.name} doesn't have enough money to buy the President's Certificate for $${presidentCost}`,
+          type: 'warning',
+          duration: 3000
+        });
+        return false;
+      }
+      
+      // Find the par value position on the stock market
+      const parValuePosition = findParValuePosition(parValue);
+      if (!parValuePosition) {
+        console.log('Invalid par value');
+        return false;
+      }
+      
+      // Record previous state for undo
+      const previousState = {
+        playerCash: player.cash,
+        playerCertificates: [...player.certificates],
+        corporationShares: [],
+        ipoShares: [...corporation.ipoShares],
+        bankShares: [...corporation.bankShares],
+        purchasedCertificate: presidentCertificate
+      };
+      
+      set((state) => ({
+        players: state.players.map(p => 
+          p.id === playerId 
+            ? { 
+                ...p, 
+                cash: p.cash - presidentCost,
+                certificates: [...p.certificates, presidentCertificate]
+              }
+            : p
+        ),
+        corporations: state.corporations.map(c => 
+          c.id === corporationId 
+            ? {
+                ...c,
+                presidentId: playerId,
+                parValue: parValue,
+                sharePrice: parValue,
+                started: true, // Corporation is now started
+                ipoShares: c.ipoShares.filter(cert => !cert.isPresident), // Remove president cert from IPO
+                playerShares: new Map([[playerId, [presidentCertificate]]]) // Add president cert only
+              }
+            : c
+        ),
+        stockMarket: {
+          ...state.stockMarket,
+          tokenPositions: new Map([
+            ...state.stockMarket.tokenPositions,
+            [corporationId, parValuePosition]
+          ])
+        }
+      }));
+      
+      // Record the action for undo
+      const stockAction: StockAction = {
+        id: crypto.randomUUID(),
+        playerId,
+        type: 'start_corporation',
+        timestamp: Date.now(),
+        data: {
+          corporationAbbreviation: corporation.abbreviation,
+          parValue,
+          previousState
+        }
+      };
+      
+      set((state) => ({
+        stockRoundState: {
+          currentPlayerActions: [...(state.stockRoundState?.currentPlayerActions || []), stockAction],
+          turnStartTime: state.stockRoundState?.turnStartTime || Date.now()
+        }
+      }));
+      
+      // Add notification
+      get().addNotification({
+        title: corporation.name,
+        message: `${player.name} started ${corporation.name} at par value $${parValue} (bought 2 shares for $${presidentCost})`,
+        type: 'purchase',
+        duration: 3000
+      });
+      
+      return true;
     }
     
     // Check if player can afford the share
@@ -1142,106 +1248,7 @@ export const useGameStore = create<GameStore>()(
     return true;
   },
 
-  buyPresidentCertificate: (playerId, corporationAbbreviation, parValue) => {
-    const state = get();
-    const player = state.players.find(p => p.id === playerId);
-    
-    if (!player) return false;
-    
-    // Find the existing corporation (it should already exist but not be floated)
-    const existingCorporation = state.corporations.find(c => c.abbreviation === corporationAbbreviation);
-    if (!existingCorporation) return false;
-    
-    // Check if corporation is already started
-    if (existingCorporation.started) return false;
-    
-    // Calculate president certificate cost (20% of par value)
-    const presidentCost = parValue * 2; // President's Certificate represents 2 shares (20% ownership)
-    if (player.cash < presidentCost) {
-      get().addNotification({
-        title: 'Insufficient Funds',
-        message: `${player.name} doesn't have enough money to buy the President's Certificate for $${presidentCost}`,
-        type: 'warning',
-        duration: 3000
-      });
-      return false;
-    }
-    
-    // Find the par value position on the stock market
-    const parValuePosition = findParValuePosition(parValue);
-    if (!parValuePosition) return false;
-    
-    // Find the president certificate from the existing IPO pool
-    const presidentCertificate = existingCorporation.ipoShares.find(cert => cert.isPresident);
-    if (!presidentCertificate) return false;
-    
-    set((state) => ({
-      players: state.players.map(p => 
-        p.id === playerId 
-          ? { 
-              ...p, 
-              cash: p.cash - presidentCost
-            }
-          : p
-      ),
-      corporations: state.corporations.map(c => 
-        c.id === existingCorporation.id 
-          ? {
-              ...c,
-              presidentId: playerId,
-              parValue: parValue,
-              sharePrice: parValue,
-              started: true, // Corporation is now started
-              ipoShares: c.ipoShares.filter(cert => !cert.isPresident), // Remove president cert from IPO
-              playerShares: new Map([[playerId, [presidentCertificate]]]) // Add president cert only
-            }
-          : c
-      ),
-      stockMarket: {
-        ...state.stockMarket,
-        tokenPositions: new Map([
-          ...state.stockMarket.tokenPositions,
-          [existingCorporation.id, parValuePosition]
-        ])
-      }
-    }));
-    
-    // Record the action for undo
-    const stockAction: StockAction = {
-      id: crypto.randomUUID(),
-      playerId,
-      type: 'start_corporation',
-      timestamp: Date.now(),
-      data: {
-        corporationAbbreviation,
-        parValue,
-        previousState: {
-          playerCash: player.cash + presidentCost, // Cash before purchase
-          playerCertificates: [...player.certificates],
-          corporationShares: [],
-          ipoShares: [],
-          bankShares: []
-        }
-      }
-    };
-    
-    set((state) => ({
-      stockRoundState: {
-        currentPlayerActions: [...(state.stockRoundState?.currentPlayerActions || []), stockAction],
-        turnStartTime: state.stockRoundState?.turnStartTime || Date.now()
-      }
-    }));
-    
-    // Add notification
-    get().addNotification({
-      title: existingCorporation.name,
-      message: `${player.name} started ${existingCorporation.name} at par value $${parValue} (bought 2 shares for $${presidentCost})`,
-      type: 'purchase',
-      duration: 3000
-    });
-    
-    return true;
-  },
+
 
   undoLastStockAction: () => {
     const state = get();
