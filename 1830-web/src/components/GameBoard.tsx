@@ -203,7 +203,7 @@ export const GameBoard: React.FC = () => {
                                 {corporationsAtPosition.length > 0 && (
                                   <>
                                     <div className="absolute inset-0 flex items-center justify-center gap-1 p-1">
-                                      {corporationsAtPosition.map((corporation, index) => (
+                                      {corporationsAtPosition.map((corporation) => (
                                         <div 
                                           key={corporation.id}
                                           className="flex-shrink-0"
@@ -323,24 +323,24 @@ export const GameBoard: React.FC = () => {
                 <p className={`${colors.text.tertiary} text-sm`}>No corporations started yet</p>
               ) : (
                 <div className="space-y-2">
-                  {corporations.map((corp) => (
-                    <div key={corp.id} className={`p-2 ${colors.corporation.border} rounded`}>
+                  {corporations.map((corporation) => (
+                    <div key={corporation.id} className="corporation-item">
                       <div className="flex items-center gap-2">
                         <div 
                           className="corporation-token"
-                          style={{ backgroundColor: corp.color }}
+                          style={{ backgroundColor: corporation.color }}
                         >
-                          {corp.abbreviation}
+                          {corporation.abbreviation}
                         </div>
                         <div className="flex-1" style={{ lineHeight: '1.2' }}>
-                          <p className={`font-medium text-sm ${colors.corporation.name}`} style={{ margin: '0 0 2px 0' }}>{corp.name}</p>
-                          {corp.presidentId && (
+                          <p className={`font-medium text-sm ${colors.corporation.name}`} style={{ margin: '0 0 2px 0' }}>{corporation.name}</p>
+                          {corporation.presidentId && (
                             <p className={`text-sm italic ${colors.text.tertiary}`} style={{ margin: '0 0 2px 0' }}>
-                              President: {players.find(p => p.id === corp.presidentId)?.name}
+                              President: {players.find(p => p.id === corporation.presidentId)?.name}
                             </p>
                           )}
-                          {corp.parValue && (
-                            <p className={`text-sm italic ${colors.text.tertiary}`} style={{ margin: '0' }}>PAR: ${corp.parValue} | MP: ${corp.sharePrice}</p>
+                          {corporation.parValue && (
+                            <p className={`text-sm italic ${colors.text.tertiary}`} style={{ margin: '0' }}>PAR: ${corporation.parValue} | MP: ${corporation.sharePrice}</p>
                           )}
                         </div>
                       </div>

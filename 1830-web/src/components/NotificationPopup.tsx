@@ -14,7 +14,6 @@ interface NotificationPopupProps {
 }
 
 export const NotificationPopup: React.FC<NotificationPopupProps> = ({ 
-  id,
   title, 
   message, 
   type,

@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useColors } from '../styles/colors';
+import type { Player } from '../types/game';
 
 export const PrivateAuction: React.FC = () => {
   const { 
     auctionState, 
     players, 
     bank,
-    notifications,
     buyCheapestPrivate,
     bidOnPrivate, 
     passPrivateAuction,
@@ -138,11 +138,7 @@ export const PrivateAuction: React.FC = () => {
     setBidAmounts({ ...bidAmounts, [companyId]: newBid });
   };
 
-  const initializeBidAmount = (companyId: string) => {
-    if (!bidAmounts[companyId]) {
-      setBidAmounts({ ...bidAmounts, [companyId]: getMinBidForCompany(companyId) });
-    }
-  };
+
 
   const canBuyCheapest = () => {
     return currentPlayer && cheapestPrivate && 
@@ -195,7 +191,7 @@ export const PrivateAuction: React.FC = () => {
 
       {/* Private Companies Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        {sortedCompanies.map((privateCompany, index) => {
+        {sortedCompanies.map((privateCompany) => {
           const companyData = getPrivateCompanyData(privateCompany.id);
           const highestBid = getHighestBid(privateCompany.id);
           const highestBidder = getHighestBidder(privateCompany.id);
@@ -353,7 +349,7 @@ export const PrivateAuction: React.FC = () => {
                       <div className={`text-xs ${colors.text.success}`}>
                         {player.privateCompanies.map((pc) => (
                           <div key={pc.id}>
-                            Bought {pc.name} for ${(pc as any).purchasePrice || pc.cost}
+                            Bought {pc.name} for ${pc.purchasePrice || pc.cost}
                           </div>
                         ))}
                       </div>
@@ -396,9 +392,23 @@ export const PrivateAuction: React.FC = () => {
 
 // Bid-off component for tied bids
 interface BidOffAuctionProps {
-  bidOffState: any; // BidOffState type
-  players: any[];
-  bank: any;
+  bidOffState: {
+    privateCompanyId: string;
+    participantIds: string[];
+    currentPlayerIndex: number;
+    currentBid: number;
+    currentBidderId: string;
+    consecutivePasses: number;
+  };
+  players: Player[];
+  bank: {
+    privateCompanies: Array<{
+      id: string;
+      name: string;
+      cost: number;
+      revenue: number;
+    }>;
+  };
   bidOffBid: (playerId: string, amount: number) => boolean;
   bidOffPass: (playerId: string) => boolean;
 }
@@ -415,7 +425,7 @@ const BidOffAuction: React.FC<BidOffAuctionProps> = ({
   
   const currentPlayer = players.find(p => p.id === bidOffState.participantIds[bidOffState.currentPlayerIndex]);
   const currentBidder = players.find(p => p.id === bidOffState.currentBidderId);
-  const privateCompany = bank.privateCompanies.find((pc: any) => pc.id === bidOffState.privateCompanyId);
+  const privateCompany = bank.privateCompanies.find((pc) => pc.id === bidOffState.privateCompanyId);
   
   const handleBid = () => {
     if (currentPlayer && bidAmount > bidOffState.currentBid) {
@@ -444,7 +454,7 @@ const BidOffAuction: React.FC<BidOffAuctionProps> = ({
             Current High Bid: <span className="font-bold">${bidOffState.currentBid}</span> by {currentBidder?.name}
           </div>
           <div className={`text-sm mt-2 ${colors.notification.warning.text}`}>
-            Participants: {bidOffState.participantIds.map((id: string) => 
+            Participants: {bidOffState.participantIds.map((id) => 
               players.find(p => p.id === id)?.name
             ).join(' vs ')}
           </div>

@@ -156,6 +156,7 @@ export interface GameState {
   stockRoundState?: {
     currentPlayerActions: StockAction[];
     turnStartTime: number;
+    pendingStockMovements?: { corporationId: string; sharesSold: number }[];
   };
 }
 
@@ -229,7 +230,7 @@ export interface GameAction {
   type: string;
   playerId: string;
   timestamp: number;
-  data: any;
+  data: Record<string, unknown>;
 }
 
 export enum ActionType {

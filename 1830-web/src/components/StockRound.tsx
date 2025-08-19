@@ -1,12 +1,11 @@
 import React from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useColors } from '../styles/colors';
-import { RoundType } from '../types/game';
-import type { Corporation, Certificate } from '../types/game';
+import type { Corporation } from '../types/game';
 import { StockMarketDisplay } from './StockMarketDisplay';
 
 const StockRound: React.FC = () => {
-  const { corporations, players, currentPlayerIndex, phase, buyCertificate, sellCertificate, undoLastStockAction, nextStockPlayer, stockRoundState } = useGameStore();
+  const { corporations, players, currentPlayerIndex, buyCertificate, sellCertificate, undoLastStockAction, nextStockPlayer, stockRoundState } = useGameStore();
   const colors = useColors();
   const [debugFirstStockRound, setDebugFirstStockRound] = React.useState(false);
   const [showParValueModal, setShowParValueModal] = React.useState(false);
@@ -20,7 +19,9 @@ const StockRound: React.FC = () => {
   // Available par values (red spaces on stock market)
   const availableParValues = [67, 71, 76, 82, 90, 100];
 
-  const handleBuyCertificate = (corporationId: string) => {
+
+
+  const handleBuyFromIPO = (corporationId: string) => {
     const currentPlayer = players[currentPlayerIndex];
     if (!currentPlayer) return;
     
@@ -43,8 +44,33 @@ const StockRound: React.FC = () => {
       return;
     }
     
-    // Regular purchase for started corporation
-    buyCertificate(currentPlayer.id, corporationId);
+    // Regular purchase from IPO for started corporation
+    buyCertificate(currentPlayer.id, corporationId, undefined, false);
+  };
+
+
+
+  const handleBuyFromBank = (corporationId: string) => {
+    const currentPlayer = players[currentPlayerIndex];
+    if (!currentPlayer) return;
+    
+    // Check if player has already bought this turn
+    const hasBoughtThisTurn = stockRoundState?.currentPlayerActions.some(action => 
+      action.type === 'buy_certificate' || action.type === 'start_corporation'
+    );
+    
+    if (hasBoughtThisTurn) return;
+    
+    const corporation = corporations.find(c => c.id === corporationId);
+    if (!corporation) return;
+    
+    // Can only buy from bank if corporation is started
+    if (!corporation.started) {
+      return;
+    }
+    
+    // Purchase from bank pool at market price
+    buyCertificate(currentPlayer.id, corporationId, undefined, true);
   };
 
   const handleSellCertificate = (corporationId: string) => {
@@ -60,6 +86,17 @@ const StockRound: React.FC = () => {
     
     console.log('Current player:', currentPlayer.name);
     
+    // Check first stock round restriction
+    if (isFirstStockRound) {
+      useGameStore.getState().addNotification({
+        title: 'Selling Not Allowed',
+        message: 'Selling shares is not allowed during the first stock round',
+        type: 'warning',
+        duration: 3000
+      });
+      return;
+    }
+    
     // For now, sell 1 share (10% certificate)
     const result = sellCertificate(currentPlayer.id, corporationId, 1);
     console.log('sellCertificate result:', result);
@@ -73,102 +110,9 @@ const StockRound: React.FC = () => {
   
   
 
-  const renderIPOShares = (corporation: Corporation) => {
-    const ipoShares = corporation.ipoShares;
-    const bankShares = corporation.bankShares;
-    
-    return (
-      <div className="flex flex-col space-y-2">
-        {/* IPO Shares */}
-        <div className="flex flex-col">
-          <div className={`text-xs font-medium ${colors.text.secondary} mb-1`}>
-            IPO ({ipoShares.length} shares)
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {ipoShares.map((cert, index) => (
-              <div
-                key={`ipo-${corporation.id}-${index}`}
-                className={`w-8 h-10 rounded border-2 ${colors.card.border} ${colors.card.background} flex items-center justify-center text-xs font-bold cursor-pointer hover:${colors.card.backgroundHighlight} transition-colors`}
-                style={{ 
-                  backgroundColor: corporation.color + '20',
-                  borderColor: corporation.color,
-                  color: corporation.color
-                }}
-                title={`${cert.isPresident ? 'President' : 'Share'} - ${cert.percentage}%`}
-              >
-                {cert.isPresident ? 'P' : cert.percentage}
-              </div>
-            ))}
-          </div>
-        </div>
 
-        {/* Bank Pool */}
-        {bankShares.length > 0 && (
-          <div className="flex flex-col">
-            <div className={`text-xs font-medium ${colors.text.secondary} mb-1`}>
-              Bank Pool ({bankShares.length} shares)
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {bankShares.map((cert, index) => (
-                <div
-                  key={`bank-${corporation.id}-${index}`}
-                  className={`w-8 h-10 rounded border-2 border-dashed ${colors.card.borderAlt} ${colors.card.backgroundAlt} flex items-center justify-center text-xs font-bold`}
-                  style={{ 
-                    backgroundColor: corporation.color + '10',
-                    borderColor: corporation.color + '60',
-                    color: corporation.color + '80'
-                  }}
-                  title={`${cert.isPresident ? 'President' : 'Share'} - ${cert.percentage}% (Bank Pool)`}
-                >
-                  {cert.isPresident ? 'P' : cert.percentage}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
 
-  const renderPlayerShares = (corporation: Corporation) => {
-    return (
-      <div className="flex flex-col space-y-2">
-        <div className={`text-xs font-medium ${colors.text.secondary} mb-1`}>
-          Player Shares
-        </div>
-        <div className="space-y-1">
-          {players.map(player => {
-            const playerCerts = corporation.playerShares.get(player.id) || [];
-            if (playerCerts.length === 0) return null;
-            
-            return (
-              <div key={player.id} className="flex items-center space-x-2">
-                <div className={`text-xs ${colors.text.secondary} min-w-[60px]`}>
-                  {player.name}:
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {playerCerts.map((cert, index) => (
-                    <div
-                      key={`player-${player.id}-${corporation.id}-${index}`}
-                      className={`w-6 h-8 rounded border ${colors.card.border} ${colors.card.background} flex items-center justify-center text-xs font-bold`}
-                      style={{ 
-                        backgroundColor: corporation.color + '30',
-                        borderColor: corporation.color,
-                        color: corporation.color
-                      }}
-                      title={`${cert.isPresident ? 'President' : 'Share'} - ${cert.percentage}%`}
-                    >
-                      {cert.isPresident ? 'P' : cert.percentage}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
+
 
   return (
     <div className={`${colors.card.background} rounded-lg ${colors.card.shadow} p-6`}>
@@ -287,22 +231,6 @@ const StockRound: React.FC = () => {
               </div>
             </div>
 
-            {/* Key Data */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="text-center">
-                <div className={`text-xs ${colors.text.secondary}`}>Par Value</div>
-                <div className={`text-sm font-semibold ${colors.text.primary}`}>
-                  ${corporation.parValue || 'Not Set'}
-                </div>
-              </div>
-              <div className="text-center">
-                <div className={`text-xs ${colors.text.secondary}`}>Market Price</div>
-                <div className={`text-sm font-semibold ${colors.text.primary}`}>
-                  ${corporation.sharePrice || 'Not Set'}
-                </div>
-              </div>
-            </div>
-
             {/* Share Pools */}
             <div className="space-y-3 mb-4">
               <div className="flex justify-between items-center">
@@ -353,30 +281,91 @@ const StockRound: React.FC = () => {
               </div>
             </div>
 
+            {/* Key Data */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="text-center">
+                <div className={`text-xs ${colors.text.secondary}`}>Par Value</div>
+                <div className={`text-sm font-semibold ${colors.text.primary}`}>
+                  ${corporation.parValue || 'Not Set'}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className={`text-xs ${colors.text.secondary}`}>Market Price</div>
+                <div className={`text-sm font-semibold ${colors.text.primary}`}>
+                  ${corporation.sharePrice || 'Not Set'}
+                </div>
+              </div>
+            </div>
+
             {/* Action Buttons */}
-            <div className="flex space-x-2">
-              <button
-                onClick={() => handleBuyCertificate(corporation.id)}
-                disabled={stockRoundState?.currentPlayerActions.some(action => 
-                  action.type === 'buy_certificate' || action.type === 'start_corporation'
-                )}
-                className={`flex-1 py-2 px-3 rounded text-xs font-medium transition-colors ${
-                  stockRoundState?.currentPlayerActions.some(action => 
+            <div className="space-y-2">
+              {/* Buy Options */}
+              <div className="flex space-x-1">
+                <button
+                  onClick={() => handleBuyFromIPO(corporation.id)}
+                  disabled={stockRoundState?.currentPlayerActions.some(action => 
                     action.type === 'buy_certificate' || action.type === 'start_corporation'
-                  )
-                    ? colors.button.disabled
-                    : colors.button.primary
-                }`}
-                title={stockRoundState?.currentPlayerActions.some(action => 
-                  action.type === 'buy_certificate' || action.type === 'start_corporation'
-                ) ? "Already bought this turn" : "Buy shares"}
-              >
-                Buy
-              </button>
+                  ) || stockRoundState?.currentPlayerActions.some(action => 
+                    action.type === 'sell_certificate' && action.data?.corporationId === corporation.id
+                  ) || corporation.ipoShares.length === 0}
+                  className={`flex-1 py-2 px-2 rounded text-xs font-medium transition-colors ${
+                    stockRoundState?.currentPlayerActions.some(action => 
+                      action.type === 'buy_certificate' || action.type === 'start_corporation'
+                    ) || stockRoundState?.currentPlayerActions.some(action => 
+                      action.type === 'sell_certificate' && action.data?.corporationId === corporation.id
+                    ) || corporation.ipoShares.length === 0
+                      ? colors.button.disabled
+                      : 'bg-green-600 hover:bg-green-700 text-white'
+                  }`}
+                  title={
+                    stockRoundState?.currentPlayerActions.some(action => 
+                      action.type === 'buy_certificate' || action.type === 'start_corporation'
+                    ) ? "Already bought this turn" : 
+                    stockRoundState?.currentPlayerActions.some(action => 
+                      action.type === 'sell_certificate' && action.data?.corporationId === corporation.id
+                    ) ? "Cannot buy after selling this corporation this turn" :
+                    corporation.ipoShares.length === 0 ? "No shares in IPO" :
+                    `Buy from IPO at $${corporation.parValue || 'par value'}`
+                  }
+                >
+                  Buy IPO
+                </button>
+                <button
+                  onClick={() => handleBuyFromBank(corporation.id)}
+                  disabled={stockRoundState?.currentPlayerActions.some(action => 
+                    action.type === 'buy_certificate' || action.type === 'start_corporation'
+                  ) || stockRoundState?.currentPlayerActions.some(action => 
+                    action.type === 'sell_certificate' && action.data?.corporationId === corporation.id
+                  ) || corporation.bankShares.length === 0}
+                  className={`flex-1 py-2 px-2 rounded text-xs font-medium transition-colors ${
+                    stockRoundState?.currentPlayerActions.some(action => 
+                      action.type === 'buy_certificate' || action.type === 'start_corporation'
+                    ) || stockRoundState?.currentPlayerActions.some(action => 
+                      action.type === 'sell_certificate' && action.data?.corporationId === corporation.id
+                    ) || corporation.bankShares.length === 0
+                      ? colors.button.disabled
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  }`}
+                  title={
+                    stockRoundState?.currentPlayerActions.some(action => 
+                      action.type === 'buy_certificate' || action.type === 'start_corporation'
+                    ) ? "Already bought this turn" : 
+                    stockRoundState?.currentPlayerActions.some(action => 
+                      action.type === 'sell_certificate' && action.data?.corporationId === corporation.id
+                    ) ? "Cannot buy after selling this corporation this turn" :
+                    corporation.bankShares.length === 0 ? "No shares in bank" :
+                    `Buy from bank at $${corporation.sharePrice}`
+                  }
+                >
+                  Buy Bank
+                </button>
+              </div>
+              
+              {/* Sell Button */}
               <button
                 onClick={() => handleSellCertificate(corporation.id)}
                 disabled={isFirstStockRound}
-                className={`flex-1 py-2 px-3 rounded text-xs font-medium transition-colors ${
+                className={`w-full py-2 px-3 rounded text-xs font-medium transition-colors ${
                   isFirstStockRound ? colors.button.disabled : colors.button.secondary
                 }`}
                 title={isFirstStockRound ? "Selling not allowed in first stock round" : "Sell shares"}

@@ -1,18 +1,27 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { GameState, Player, GameAction, AuctionState, PlayerBid, PrivateCompanyState, OwnedPrivateCompany, AuctionSummary, Corporation, Certificate, Point, StockAction } from '../types/game';
+import type { GameState, Player, GameAction, AuctionState, PrivateCompanyState, OwnedPrivateCompany, AuctionSummary, Corporation, Certificate, Point, StockAction } from '../types/game';
 import { RoundType, ActionType } from '../types/game';
 import { GAME_CONSTANTS, PRIVATE_COMPANIES, CORPORATIONS, STOCK_MARKET_GRID } from '../types/constants';
 
 // Helper functions for stock market
 const findParValuePosition = (parValue: number): Point | null => {
-  for (let row = 0; row < STOCK_MARKET_GRID.length; row++) {
-    for (let col = 0; col < STOCK_MARKET_GRID[row].length; col++) {
-      if (STOCK_MARKET_GRID[row][col] === parValue.toString()) {
-        return { x: col, y: row };
-      }
-    }
+  // Map par values to their row in the red column (column 6)
+  // Looking at STOCK_MARKET_GRID column 6: ["100", "90", "100", "82", "100", "67", "67", "67", null, null, null]
+  const parValueToRow: Record<number, number> = {
+    100: 0, // Row 0, Column 6
+    90: 1,  // Row 1, Column 6  
+    82: 2,
+    76: 3,
+    71: 4,  // Row 3, Column 6
+    67: 5   // Row 5, Column 6
+  };
+  
+  const row = parValueToRow[parValue];
+  if (row !== undefined) {
+    return { x: 6, y: row };
   }
+  
   return null;
 };
 
@@ -106,7 +115,7 @@ interface GameStore extends GameState {
   createAuctionSummary: () => AuctionSummary;
   
   // Stock actions
-  buyCertificate: (playerId: string, corporationId: string, parValue?: number) => boolean;
+  buyCertificate: (playerId: string, corporationId: string, parValue?: number, fromBank?: boolean) => boolean;
 
   sellCertificate: (playerId: string, corporationId: string, shares: number) => boolean;
   undoLastStockAction: () => boolean;
@@ -541,7 +550,7 @@ export const useGameStore = create<GameStore>()(
 
 
   continueToStockRound: () => {
-    set((state) => ({
+    set(() => ({
       roundType: RoundType.STOCK,
       auctionSummary: undefined,
       resolvingCompanyId: undefined,
@@ -563,7 +572,7 @@ export const useGameStore = create<GameStore>()(
     if (remainingCompanies.length === 0) {
       // All companies sold, create summary and move to summary round
       const summary = get().createAuctionSummary();
-      set((state) => ({
+      set(() => ({
         roundType: RoundType.AUCTION_SUMMARY,
         auctionState: undefined,
         auctionSummary: summary,
@@ -605,7 +614,7 @@ export const useGameStore = create<GameStore>()(
         });
         
         // Remove the bid and locked money
-        set((state) => ({
+        set(() => ({
           auctionState: {
             ...state.auctionState!,
             playerBids: state.auctionState!.playerBids.filter(bid => bid.privateCompanyId !== cheapestCompany.id),
@@ -616,7 +625,7 @@ export const useGameStore = create<GameStore>()(
         }));
         
         // Mark the company as owned
-        set((state) => ({
+        set(() => ({
           auctionState: {
             ...state.auctionState!,
             privateCompanies: state.auctionState!.privateCompanies.map(pc => 
@@ -740,7 +749,7 @@ export const useGameStore = create<GameStore>()(
           ...state.stockMarket,
           tokenPositions: new Map([
             ...state.stockMarket.tokenPositions,
-            [corporationId, parValuePosition]
+            [corporationId, { x: 6, y: parValuePosition.y }] // Place in column 6 at the same row as par value
           ])
         }
       }));
@@ -863,7 +872,7 @@ export const useGameStore = create<GameStore>()(
       }
       
       // Handle President's Certificate transfer if presidency is changing
-      let updatedPlayerShares = new Map(corporation.playerShares);
+      const updatedPlayerShares = new Map(corporation.playerShares);
       
       if (presidentTransfer && currentPresident && currentPresident !== playerId) {
         // Find the President's Certificate from the old president
@@ -1006,7 +1015,6 @@ export const useGameStore = create<GameStore>()(
     }
     
     // Check President's Certificate rules
-    const playerIsPresident = corporation.presidentId === playerId;
     const presidentCert = playerCerts.find(cert => cert.isPresident);
     
     // President's Certificate can never be sold directly - it can only be transferred
@@ -1118,6 +1126,10 @@ export const useGameStore = create<GameStore>()(
         console.log(`New president ownership: ${maxShares}%`);
         
         // Get the new president's current shares
+        if (!newPresidentId) {
+          console.log('❌ No new president found');
+          return false;
+        }
         const newPresidentCerts = corporation.playerShares.get(newPresidentId) || [];
         const newPresidentTotalPercentage = newPresidentCerts.reduce((sum, cert) => sum + cert.percentage, 0);
         console.log(`New president certificates: ${newPresidentCerts.length}, total ${newPresidentTotalPercentage}%`);
@@ -1151,7 +1163,7 @@ export const useGameStore = create<GameStore>()(
               
               // New president gets President's Certificate + remaining shares
               const newPresidentFinalShares = [...newPresidentRemainingShares, presidentCert];
-              updatedPlayerShares.set(newPresidentId, newPresidentFinalShares);
+              updatedPlayerShares.set(newPresidentId!, newPresidentFinalShares);
               
               console.log(`Former president final shares: ${formerPresidentShares.map(s => s.percentage + '%').join(', ')}`);
               console.log(`New president final shares: ${newPresidentFinalShares.map(s => s.isPresident ? 'P' : s.percentage + '%').join(', ')}`);
@@ -1397,7 +1409,7 @@ export const useGameStore = create<GameStore>()(
     const state = get();
     const nextPlayerIndex = (state.currentPlayerIndex + 1) % state.players.length;
     
-    set((state) => ({
+    set(() => ({
       currentPlayerIndex: nextPlayerIndex,
       stockRoundState: {
         currentPlayerActions: [],
@@ -1582,8 +1594,6 @@ export const useGameStore = create<GameStore>()(
     
     const currentPosition = state.stockMarket.tokenPositions.get(corporationId);
     if (!currentPosition) return false;
-    
-
     
     let newPosition: Point;
     if (direction === 'up') {

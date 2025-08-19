@@ -80,7 +80,7 @@ export const StockMarketDisplay: React.FC<StockMarketDisplayProps> = ({
                 {corporationsAtPosition.length > 0 && (
                   <>
                     <div className="absolute inset-0 flex items-center justify-center gap-1 p-1">
-                      {corporationsAtPosition.map((corporation, index) => (
+                      {corporationsAtPosition.map((corporation) => (
                         <div 
                           key={corporation.id}
                           className="flex-shrink-0"
