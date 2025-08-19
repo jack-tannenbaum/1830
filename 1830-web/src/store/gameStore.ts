@@ -820,44 +820,46 @@ export const useGameStore = create<GameStore>()(
     set((state) => {
       // Check if this purchase would make the buyer the new president
       const buyerCurrentShares = state.corporations.find(c => c.id === corporationId)?.playerShares.get(playerId) || [];
-      const buyerTotalShares = buyerCurrentShares.length + 1; // +1 for the new certificate
-      
       const currentPresident = state.corporations.find(c => c.id === corporationId)?.presidentId;
-      const presidentShares = currentPresident ? 
-        (state.corporations.find(c => c.id === corporationId)?.playerShares.get(currentPresident) || []).length : 0;
       
       let newPresidentId = currentPresident;
       let presidentTransfer = false;
       
-            // Check if this purchase would make the buyer the new president
-      // Compare TOTAL ownership percentages (including President's Certificate)
-      const currentPresidentShares = currentPresident ? corporation.playerShares.get(currentPresident) || [] : [];
-      const currentPresidentTotalPercentage = currentPresidentShares.reduce((sum, cert) => sum + cert.percentage, 0);
-      
-      const buyerSharesAfterPurchase = buyerCurrentShares.length + 1; // +1 for the new certificate
-      const buyerTotalPercentage = buyerSharesAfterPurchase * 10; // Each share is 10%
-      
-      console.log(`Presidency check: Buyer will have ${buyerTotalPercentage}% (${buyerSharesAfterPurchase} shares), current president has ${currentPresidentTotalPercentage}% (${currentPresidentShares.length} shares)`);
-      
-      // If buyer would have MORE percentage than current president, transfer presidency
-      if (buyerTotalPercentage > currentPresidentTotalPercentage && currentPresident !== playerId) {
-        newPresidentId = playerId;
-        presidentTransfer = true;
+      if (currentPresident && currentPresident !== playerId) {
+        // Compare TOTAL ownership percentages (including President's Certificate)
+        const currentPresidentShares = corporation.playerShares.get(currentPresident) || [];
+        const currentPresidentTotalPercentage = currentPresidentShares.reduce((sum, cert) => sum + cert.percentage, 0);
         
-        console.log(`Presidency transfer triggered: Buyer will have ${buyerTotalPercentage}% (${buyerSharesAfterPurchase} shares), current president has ${currentPresidentTotalPercentage}% (${currentPresidentShares.length} shares)`);
+        // Calculate buyer's percentage after this purchase
+        const buyerSharesAfterPurchase = [...buyerCurrentShares, certificate];
+        const buyerTotalPercentage = buyerSharesAfterPurchase.reduce((sum, cert) => sum + cert.percentage, 0);
         
-        // Add notification for presidency transfer
-        const oldPresident = state.players.find(p => p.id === currentPresident);
-        if (oldPresident) {
-          get().addNotification({
-            title: corporation.name,
-            message: `${player.name} stole the presidency from ${oldPresident.name} by buying more shares!`,
-            type: 'warning',
-            duration: 4000
-          });
+        console.log(`=== PRESIDENCY TRANSFER CHECK (BUY) ===`);
+        console.log(`Current president: ${currentPresident} (${currentPresidentShares.length} shares, ${currentPresidentTotalPercentage}%)`);
+        console.log(`Buyer: ${playerId} (${buyerCurrentShares.length} shares → ${buyerSharesAfterPurchase.length} shares, ${buyerTotalPercentage}%)`);
+        console.log(`Certificate being bought: ${certificate.isPresident ? 'President' : 'Regular'} (${certificate.percentage}%)`);
+        
+        // If buyer would have MORE percentage than current president, transfer presidency
+        if (buyerTotalPercentage > currentPresidentTotalPercentage) {
+          newPresidentId = playerId;
+          presidentTransfer = true;
+          
+          console.log(`✅ PRESIDENCY TRANSFER TRIGGERED: Buyer ${buyerTotalPercentage}% > President ${currentPresidentTotalPercentage}%`);
+          
+          // Add notification for presidency transfer
+          const oldPresident = state.players.find(p => p.id === currentPresident);
+          if (oldPresident) {
+            get().addNotification({
+              title: corporation.name,
+              message: `${player.name} stole the presidency from ${oldPresident.name} by buying more shares!`,
+              type: 'warning',
+              duration: 4000
+            });
+          }
+        } else {
+          console.log(`❌ NO PRESIDENCY TRANSFER: Buyer ${buyerTotalPercentage}% <= President ${currentPresidentTotalPercentage}%`);
         }
-      } else {
-        console.log(`No presidency transfer: Buyer will have ${buyerTotalPercentage}% (${buyerSharesAfterPurchase} shares), current president has ${currentPresidentTotalPercentage}% (${currentPresidentShares.length} shares)`);
+        console.log(`=== END PRESIDENCY TRANSFER CHECK (BUY) ===`);
       }
       
       // Handle President's Certificate transfer if presidency is changing
@@ -869,15 +871,22 @@ export const useGameStore = create<GameStore>()(
         const presidentCert = oldPresidentShares.find(cert => cert.isPresident);
         
         if (presidentCert) {
+          console.log(`=== PRESIDENCY EXCHANGE LOGIC (BUY) ===`);
+          
           // Remove President's Certificate from old president
           const oldPresidentRemainingShares = oldPresidentShares.filter(cert => !cert.isPresident);
+          console.log(`Old president shares before exchange: ${oldPresidentShares.length} total (${oldPresidentRemainingShares.length} regular + 1 President's Certificate)`);
           
-          // NEW PRESIDENT gives 2 of their EXISTING shares to OLD PRESIDENT in exchange for President's Certificate
+          // OLD PRESIDENT gives President's Certificate to NEW PRESIDENT in exchange for 2 regular shares
           const buyerShares = updatedPlayerShares.get(playerId) || [];
+          console.log(`Buyer shares before exchange: ${buyerShares.length} total`);
           
           // Take 2 shares from the new president's EXISTING shares (before the new purchase)
           const sharesToGiveToOldPresident = buyerShares.slice(0, 2); // Take first 2 existing shares
           const newPresidentRemainingShares = buyerShares.slice(2); // Keep remaining existing shares
+          
+          console.log(`Shares to give to old president: ${sharesToGiveToOldPresident.length} (${sharesToGiveToOldPresident.map(c => c.percentage + '%').join(', ')})`);
+          console.log(`New president remaining shares: ${newPresidentRemainingShares.length} (${newPresidentRemainingShares.map(c => c.percentage + '%').join(', ')})`);
           
           // New president gets: remaining existing shares + new purchase + President's Certificate
           const newPresidentFinalShares = [...newPresidentRemainingShares, certificate, presidentCert];
@@ -885,13 +894,15 @@ export const useGameStore = create<GameStore>()(
           // Old president gets their remaining shares plus 2 shares from new president
           const oldPresidentFinalShares = [...oldPresidentRemainingShares, ...sharesToGiveToOldPresident];
           
+          console.log(`New president final shares: ${newPresidentFinalShares.length} total (${newPresidentFinalShares.map(c => `${c.isPresident ? 'P' : c.percentage + '%'}`).join(', ')})`);
+          console.log(`Old president final shares: ${oldPresidentFinalShares.length} total (${oldPresidentFinalShares.map(c => `${c.isPresident ? 'P' : c.percentage + '%'}`).join(', ')})`);
+          
           // Update the player shares
           updatedPlayerShares.set(playerId, newPresidentFinalShares);
           updatedPlayerShares.set(currentPresident, oldPresidentFinalShares);
           
-          console.log(`President's Certificate exchange: New president gives 2 shares to old president, gets President's Certificate`);
-          console.log(`New president: ${newPresidentFinalShares.length} shares + President's Certificate (${newPresidentFinalShares.length * 10 + 20}% total)`);
-          console.log(`Old president: ${oldPresidentFinalShares.length} shares (${oldPresidentFinalShares.length * 10}% total)`);
+          console.log(`✅ EXCHANGE COMPLETE: 1 President's Certificate ↔ 2 regular shares`);
+          console.log(`=== END PRESIDENCY EXCHANGE LOGIC (BUY) ===`);
         } else {
           // No President's Certificate found, just add the new certificate
           const buyerShares = updatedPlayerShares.get(playerId) || [];
@@ -1001,30 +1012,30 @@ export const useGameStore = create<GameStore>()(
     // President's Certificate can never be sold directly - it can only be transferred
     if (presidentCert) {
       console.log('Player has President\'s Certificate, checking if they can sell');
-      // Check if any other player has at least 2 shares to become president
-      let hasOtherPlayerWithTwoShares = false;
+      // Check if any other player has at least 20% ownership to become president
+      let hasOtherPlayerWithEnoughOwnership = false;
       for (const [otherPlayerId, otherPlayerCerts] of corporation.playerShares.entries()) {
-        console.log(`Player ${otherPlayerId} has ${otherPlayerCerts.length} shares`);
-        if (otherPlayerId !== playerId && otherPlayerCerts.length >= 2) {
-          hasOtherPlayerWithTwoShares = true;
-          console.log(`Player ${otherPlayerId} has enough shares to become president`);
+        const otherPlayerOwnership = otherPlayerCerts.reduce((sum, cert) => sum + cert.percentage, 0);
+        console.log(`Player ${otherPlayerId} has ${otherPlayerCerts.length} certificates (${otherPlayerOwnership}% ownership)`);
+        if (otherPlayerId !== playerId && otherPlayerOwnership >= 20) {
+          hasOtherPlayerWithEnoughOwnership = true;
+          console.log(`Player ${otherPlayerId} has enough ownership to become president`);
           break;
         }
       }
       
-      // If no other player has at least 2 shares, cannot sell
-      if (!hasOtherPlayerWithTwoShares) {
-        console.log('No other player has enough shares, showing notification');
-        // Add notification explaining why they can't sell
+      // Allow the sale if another player has enough ownership to become president
+      if (!hasOtherPlayerWithEnoughOwnership) {
+        console.log('No other player has enough ownership, showing notification');
         get().addNotification({
           title: 'Cannot Sell President\'s Certificate',
-          message: 'You cannot sell shares because no other player has enough shares to become president. The President\'s Certificate can only be transferred, never sold directly.',
+          message: 'You cannot sell shares because no other player has enough ownership to become president. The President\'s Certificate can only be transferred, never sold directly.',
           type: 'warning',
           duration: 5000
         });
-        return false; // Cannot sell President's Certificate if no one else can become president
+        return false;
       } else {
-        console.log('Another player has enough shares, allowing sale');
+        console.log('Another player has enough ownership, allowing sale');
       }
     }
     
@@ -1040,176 +1051,200 @@ export const useGameStore = create<GameStore>()(
       bankShares: [...corporation.bankShares]
     };
     
-    // Remove certificates from player and add to bank pool
-    // President's Certificate cannot be sold directly - only regular certificates
+    // CRITICAL: Check if president is selling and needs to transfer presidency BEFORE validating regular certificates
+    const sellerIsPresident = corporation.presidentId === playerId;
+    let actualPlayerCerts = playerCerts; // Track the actual certificates after potential presidency transfer
+    let actualRemainingCerts = player.certificates; // Track remaining certificates after potential presidency transfer
+    
+    // Initial certificate filtering
     const regularCerts = playerCerts.filter(cert => !cert.isPresident);
     const presidentCerts = playerCerts.filter(cert => cert.isPresident);
     
-    // Can only sell regular certificates
-    if (shares > regularCerts.length) {
-      return false; // Cannot sell more shares than regular certificates available
+    console.log('=== PRESIDENCY TRANSFER CHECK (BEFORE SALE) ===');
+    console.log(`Seller is president: ${sellerIsPresident}`);
+    console.log(`President certificates: ${presidentCerts.length}`);
+    console.log(`Regular certificates: ${regularCerts.length}`);
+    console.log(`Shares being sold: ${shares}`);
+    console.log(`Player ID: ${playerId}`);
+    
+    if (sellerIsPresident && presidentCerts.length > 0) {
+      console.log(`🔍 ANALYZING PRESIDENCY TRANSFER ELIGIBILITY`);
+      
+      // Find player with most shares (excluding current president)
+      let maxShares = 0;
+      let newPresidentId = null;
+      
+      console.log(`📊 Checking all players' ownership:`);
+      for (const [otherPlayerId, otherPlayerCerts] of corporation.playerShares.entries()) {
+        if (otherPlayerId !== playerId) {
+          const otherPlayerTotalPercentage = Math.round(otherPlayerCerts.reduce((sum, cert) => sum + cert.percentage, 0));
+          console.log(`   Player ${otherPlayerId}: ${otherPlayerCerts.length} certificates, ${otherPlayerTotalPercentage}% ownership`);
+          
+          if (otherPlayerTotalPercentage >= maxShares) {
+            console.log(`     🏆 New leader: ${otherPlayerId} with ${otherPlayerTotalPercentage}% (was ${maxShares}%)`);
+            maxShares = otherPlayerTotalPercentage;
+            newPresidentId = otherPlayerId;
+          } else {
+            console.log(`     ⬇️ Not better than current max: ${otherPlayerTotalPercentage}% < ${maxShares}%`);
+          }
+        }
+      }
+      
+      const currentPresidentTotalPercentage = Math.round(playerCerts.reduce((sum, cert) => sum + cert.percentage, 0));
+      console.log(`Current president: ${playerCerts.length} certificates, ${currentPresidentTotalPercentage}% ownership`);
+      console.log(`Player with most ownership: ${newPresidentId} with ${maxShares}%`);
+      
+      // Transfer presidency if another player has equal or more ownership percentage
+      console.log(`\n🎯 PRESIDENCY TRANSFER DECISION:`);
+      console.log(`   Current president ownership: ${currentPresidentTotalPercentage}%`);
+      console.log(`   Best other player ownership: ${maxShares}%`);
+      console.log(`   Best other player ID: ${newPresidentId}`);
+      console.log(`   Transfer condition: ${maxShares} >= ${currentPresidentTotalPercentage} = ${maxShares >= currentPresidentTotalPercentage}`);
+      console.log(`   With rounding: ${Math.round(maxShares)} >= ${Math.round(currentPresidentTotalPercentage)} = ${Math.round(maxShares) >= Math.round(currentPresidentTotalPercentage)}`);
+      
+      const roundedMaxShares = Math.round(maxShares);
+      const roundedCurrentPresidentShares = Math.round(currentPresidentTotalPercentage);
+      const hasNewPresident = !!newPresidentId;
+      const hasEnoughShares = roundedMaxShares >= roundedCurrentPresidentShares;
+      
+      console.log(`🔍 FINAL CONDITION CHECK:`);
+      console.log(`   newPresidentId exists: ${hasNewPresident} (${newPresidentId})`);
+      console.log(`   ${roundedMaxShares} >= ${roundedCurrentPresidentShares}: ${hasEnoughShares}`);
+      console.log(`   Overall condition: ${hasNewPresident && hasEnoughShares}`);
+      
+      if (hasNewPresident && hasEnoughShares) {
+        console.log(`✅ PRESIDENCY TRANSFER TRIGGERED: Transferring to ${newPresidentId}`);
+        console.log(`Current president ownership: ${currentPresidentTotalPercentage}%`);
+        console.log(`New president ownership: ${maxShares}%`);
+        
+        // Get the new president's current shares
+        const newPresidentCerts = corporation.playerShares.get(newPresidentId) || [];
+        const newPresidentTotalPercentage = newPresidentCerts.reduce((sum, cert) => sum + cert.percentage, 0);
+        console.log(`New president certificates: ${newPresidentCerts.length}, total ${newPresidentTotalPercentage}%`);
+        
+        if (newPresidentTotalPercentage < 20) {
+          console.log(`❌ New president doesn't have enough ownership for exchange: ${newPresidentTotalPercentage}%`);
+          return false;
+        }
+        
+        // EXCHANGE: President's Certificate (20%) ↔ 2 regular shares (20%)
+        console.log(`=== EXECUTING PRESIDENCY EXCHANGE ===`);
+        const presidentCert = presidentCerts[0];
+        console.log(`President's Certificate: ${presidentCert.percentage}%`);
+        
+        // Take 2 shares from new president
+        const sharesToGive = newPresidentCerts.slice(-2); // Take last 2 shares
+        const newPresidentRemainingShares = newPresidentCerts.slice(0, -2);
+        
+        console.log(`Shares from new president: ${sharesToGive.map(s => s.percentage + '%').join(', ')}`);
+        console.log(`New president remaining: ${newPresidentRemainingShares.map(s => s.percentage + '%').join(', ')}`);
+        
+        // Update the corporation's playerShares map
+        set((state) => {
+          const updatedCorporations = state.corporations.map(corp => {
+            if (corp.id === corporationId) {
+              const updatedPlayerShares = new Map(corp.playerShares);
+              
+              // Former president gets regular shares only (no President's Certificate)
+              const formerPresidentShares = [...regularCerts, ...sharesToGive];
+              updatedPlayerShares.set(playerId, formerPresidentShares);
+              
+              // New president gets President's Certificate + remaining shares
+              const newPresidentFinalShares = [...newPresidentRemainingShares, presidentCert];
+              updatedPlayerShares.set(newPresidentId, newPresidentFinalShares);
+              
+              console.log(`Former president final shares: ${formerPresidentShares.map(s => s.percentage + '%').join(', ')}`);
+              console.log(`New president final shares: ${newPresidentFinalShares.map(s => s.isPresident ? 'P' : s.percentage + '%').join(', ')}`);
+              
+              return {
+                ...corp,
+                presidentId: newPresidentId || undefined,
+                playerShares: updatedPlayerShares
+              };
+            }
+            return corp;
+          });
+          
+          return { ...state, corporations: updatedCorporations };
+        });
+        
+        // Update local variables for the sale logic
+        actualPlayerCerts = [...regularCerts, ...sharesToGive]; // Former president now has these shares
+        actualRemainingCerts = player.certificates.filter(cert => {
+          // Remove all shares of this corporation and add back the new shares
+          if (cert.corporationId === corporationId) {
+            return false;
+          }
+          return true;
+        }).concat(actualPlayerCerts); // Add all the new shares after presidency transfer
+        
+        console.log(`After presidency transfer:`);
+        console.log(`  actualPlayerCerts: ${actualPlayerCerts.length} certificates`);
+        console.log(`  actualRemainingCerts: ${actualRemainingCerts.length} certificates`);
+        
+        // Add notification for presidency transfer
+        if (newPresidentId) {
+          const newPresident = state.players.find(p => p.id === newPresidentId);
+          if (newPresident) {
+            get().addNotification({
+              title: corporation.name,
+              message: `${player.name} dumps ${corporation.name} presidency. ${newPresident.name} is now president.`,
+              type: 'warning',
+              duration: 4000
+            });
+          }
+        }
+        
+        console.log(`✅ PRESIDENCY TRANSFER COMPLETE`);
+        console.log(`=== END PRESIDENCY EXCHANGE ===`);
+      } else {
+        console.log(`❌ NO PRESIDENCY TRANSFER: Max ownership ${maxShares}% < Current president ${currentPresidentTotalPercentage}%`);
+            }
     }
     
-    const certsToRemove = regularCerts.slice(0, shares);
+    // Proceed with normal sale (using potentially updated certificates after presidency transfer)
+    console.log('=== PROCEEDING WITH SALE ===');
+    console.log(`Using actualPlayerCerts: ${actualPlayerCerts.length} certificates`);
+    console.log(`Selling ${shares} shares for $${totalValue}`);
     
-    const remainingCerts = player.certificates.filter(cert => 
-      !certsToRemove.some(removeCert => 
+    // Validate we have enough shares to sell (after potential presidency transfer)
+    const actualRegularCerts = actualPlayerCerts.filter(cert => !cert.isPresident);
+    console.log(`actualRegularCerts: ${actualRegularCerts.length} certificates`);
+    console.log(`Shares requested: ${shares}`);
+    
+    if (shares > actualRegularCerts.length) {
+      console.log(`❌ Not enough regular shares to sell: ${actualRegularCerts.length} available, ${shares} requested`);
+      return false;
+    }
+    
+    console.log(`✅ Enough shares available, proceeding with sale`);
+    
+    const actualCertsToRemove = actualRegularCerts.slice(0, shares);
+    const actualFinalRemainingCerts = actualRemainingCerts.filter(cert => 
+      !actualCertsToRemove.some(removeCert => 
         removeCert.corporationId === cert.corporationId && 
         removeCert.percentage === cert.percentage &&
         removeCert.isPresident === cert.isPresident
       )
     );
     
-    // Check if this sale would cause president transfer BEFORE the sale
-    // Calculate what the seller will have after the sale
-    // Remove shares from regular certificates first, keep President's Certificate if possible
-    const remainingRegularCerts = regularCerts.slice(0, regularCerts.length - shares);
-    const sellerRemainingShares = [...remainingRegularCerts, ...presidentCerts];
-    
-    console.log('PlayerCerts before sale:', playerCerts.length);
-    console.log('Shares being sold:', shares);
-    console.log('SellerRemainingShares after sale:', sellerRemainingShares.length);
-    console.log('SellerRemainingShares breakdown:', sellerRemainingShares.map(cert => `${cert.isPresident ? 'President' : 'Regular'} (${cert.percentage}%)`));
-    const sellerIsPresident = corporation.presidentId === playerId;
-    
-    console.log('Presidency transfer check:', { sellerIsPresident, presidentCertsLength: presidentCerts.length, sellerId: playerId, presidentId: corporation.presidentId });
-    
-    if (sellerIsPresident && presidentCerts.length > 0) {
-      // Find the player with the most shares after this sale
-      let maxShares = 0;
-      let newPresidentId = corporation.presidentId;
-      
-      // Check all players' shares in this corporation - compare TOTAL ownership percentages
-      for (const [otherPlayerId, otherPlayerCerts] of state.corporations.find(c => c.id === corporationId)?.playerShares.entries() || []) {
-        if (otherPlayerId === playerId) {
-          // This is the seller - use their remaining shares after sale
-          const sellerTotalPercentage = sellerRemainingShares.reduce((sum, cert) => sum + cert.percentage, 0);
-          if (sellerTotalPercentage > maxShares) {
-            maxShares = sellerTotalPercentage;
-            newPresidentId = otherPlayerId;
-          }
-        } else {
-          // Other players - use their current shares
-          const otherPlayerTotalPercentage = otherPlayerCerts.reduce((sum, cert) => sum + cert.percentage, 0);
-          if (otherPlayerTotalPercentage > maxShares) {
-            maxShares = otherPlayerTotalPercentage;
-            newPresidentId = otherPlayerId;
-          }
-        }
-      }
-      
-      // If the seller will still have the most shares after the sale, no transfer needed
-      if (newPresidentId === playerId) {
-        console.log(`No presidency transfer needed: Seller will still have the most shares (${maxShares})`);
-        return false;
-      }
-      
-      // If seller would no longer have the most shares, transfer presidency BEFORE the sale
-      // Only transfer if the new president has MORE shares (not equal)
-      if (newPresidentId && newPresidentId !== playerId) {
-        const sellerSharesAfterSale = sellerRemainingShares.reduce((sum, cert) => sum + cert.percentage, 0);
-        const newPresidentShares = state.corporations.find(c => c.id === corporationId)?.playerShares.get(newPresidentId)?.reduce((sum, cert) => sum + cert.percentage, 0) || 0;
-        
-        console.log(`Presidency transfer check: Seller will have ${sellerSharesAfterSale}%, New president has ${newPresidentShares}%`);
-        
-        if (newPresidentShares > sellerSharesAfterSale) {
-          console.log(`Presidency will transfer: ${newPresidentShares} > ${sellerSharesAfterSale}`);
-        } else {
-          console.log(`No presidency transfer: ${newPresidentShares} <= ${sellerSharesAfterSale} (tie or seller still has more)`);
-          return false; // Don't transfer presidency if it's a tie or seller still has more
-        }
-        
-        const presidentCert = presidentCerts[0]; // There should only be one President's Certificate
-        
-        // Update player shares map - transfer President's Certificate before sale
-        const updatedPlayerShares = new Map(state.corporations.find(c => c.id === corporationId)?.playerShares || []);
-        
-        // NEW PRESIDENT gives 2 of their shares to SELLER in exchange for President's Certificate
-        const existingNewPresidentShares = updatedPlayerShares.get(newPresidentId) || [];
-        
-        // Take 2 shares from the new president to give to seller
-        const newPresidentSharesAfterExchange = existingNewPresidentShares.slice(0, existingNewPresidentShares.length - 2);
-        const sharesToGiveToSeller = existingNewPresidentShares.slice(existingNewPresidentShares.length - 2);
-        
-        // Seller gets their remaining regular shares plus 2 shares from new president
-        const sellerRegularShares = sellerRemainingShares.filter(cert => !cert.isPresident);
-        const sellerFinalShares = [...sellerRegularShares, ...sharesToGiveToSeller];
-        
-        // New president gets President's Certificate plus remaining shares
-        updatedPlayerShares.set(playerId, sellerFinalShares);
-        updatedPlayerShares.set(newPresidentId, [...newPresidentSharesAfterExchange, presidentCert]);
-        
-        console.log(`After exchange: Seller will have ${sellerFinalShares.length} shares (${sellerRegularShares.length} regular + 2 from new president)`);
-        console.log(`After exchange: New president will have ${newPresidentSharesAfterExchange.length + 1} shares (${newPresidentSharesAfterExchange.length} remaining + 1 President's Certificate)`);
-        
-        // Update the remaining certificates to reflect the transfer
-        const finalRemainingCerts = remainingCerts.filter(cert => !cert.isPresident);
-        
-        // Add notification for president transfer
-        const newPresident = state.players.find(p => p.id === newPresidentId);
-        if (newPresident) {
-          get().addNotification({
-            title: corporation.name,
-            message: `${player.name} dumps ${corporation.name}. ${newPresident.name} is now president.`,
-            type: 'warning',
-            duration: 3000
-          });
-        }
-        
-        set((state) => ({
-          players: state.players.map(p => 
-            p.id === playerId 
-              ? { ...p, cash: p.cash + totalValue, certificates: finalRemainingCerts }
-              : p
-          ),
-          corporations: state.corporations.map(c => 
-            c.id === corporationId 
-              ? { 
-                  ...c, 
-                  presidentId: newPresidentId,
-                  bankShares: [...c.bankShares, ...certsToRemove],
-                  playerShares: updatedPlayerShares
-                }
-              : c
-          ),
-          stockRoundState: {
-            currentPlayerActions: [...(state.stockRoundState?.currentPlayerActions || []), {
-              id: crypto.randomUUID(),
-              playerId,
-              type: 'sell_certificate',
-              timestamp: Date.now(),
-              data: {
-                corporationId,
-                shares,
-                previousState
-              }
-            }],
-            turnStartTime: state.stockRoundState?.turnStartTime || Date.now()
-          }
-        }));
-        
-        return true;
-      }
-    }
-    
-    // No president transfer occurred - proceed with normal sale
     set((state) => {
       const updatedPlayerShares = new Map(state.corporations.find(c => c.id === corporationId)?.playerShares || []);
-      // Use the correct remaining shares for this corporation
-      const remainingSharesForCorp = playerCerts.slice(0, playerCerts.length - shares);
+      // Use the correct remaining shares for this corporation after sale
+      const remainingSharesForCorp = actualPlayerCerts.filter(cert => !actualCertsToRemove.includes(cert));
       updatedPlayerShares.set(playerId, remainingSharesForCorp);
       
       return {
         players: state.players.map(p => 
           p.id === playerId 
-            ? { ...p, cash: p.cash + totalValue, certificates: remainingCerts }
+            ? { ...p, cash: p.cash + totalValue, certificates: actualFinalRemainingCerts }
             : p
         ),
         corporations: state.corporations.map(c => 
           c.id === corporationId 
             ? { 
                 ...c, 
-                bankShares: [...c.bankShares, ...certsToRemove],
+                bankShares: [...c.bankShares, ...actualCertsToRemove],
                 playerShares: updatedPlayerShares
               }
             : c
