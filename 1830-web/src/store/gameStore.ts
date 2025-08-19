@@ -991,6 +991,7 @@ export const useGameStore = create<GameStore>()(
     console.log('playerId:', playerId);
     console.log('corporationId:', corporationId);
     console.log('shares:', shares);
+    console.log('=== DEBUG: Starting sellCertificate logic (v2) ===');
     
     const state = get();
     const player = state.players.find(p => p.id === playerId);
@@ -1014,12 +1015,23 @@ export const useGameStore = create<GameStore>()(
       return false;
     }
     
-    // Check President's Certificate rules
-    const presidentCert = playerCerts.find(cert => cert.isPresident);
+    // Check if we're trying to sell a President's Certificate
+    const regularCerts = playerCerts.filter(cert => !cert.isPresident);
+    const presidentCerts = playerCerts.filter(cert => cert.isPresident);
     
-    // President's Certificate can never be sold directly - it can only be transferred
-    if (presidentCert) {
-      console.log('Player has President\'s Certificate, checking if they can sell');
+    console.log('=== DEBUG: Certificate Analysis ===');
+    console.log('regularCerts.length:', regularCerts.length);
+    console.log('presidentCerts.length:', presidentCerts.length);
+    console.log('shares requested:', shares);
+    console.log('shares > regularCerts.length:', shares > regularCerts.length);
+    console.log('regularCerts:', regularCerts.map(c => `${c.percentage}%${c.isPresident ? ' (P)' : ''}`));
+    console.log('presidentCerts:', presidentCerts.map(c => `${c.percentage}%${c.isPresident ? ' (P)' : ''}`));
+    
+    // If we're trying to sell more shares than we have regular certificates, 
+    // we must be trying to sell a President's Certificate
+    if (shares > regularCerts.length) {
+      console.log('Player is trying to sell a President\'s Certificate, checking if transfer is possible');
+      
       // Check if any other player has at least 20% ownership to become president
       let hasOtherPlayerWithEnoughOwnership = false;
       for (const [otherPlayerId, otherPlayerCerts] of corporation.playerShares.entries()) {
@@ -1032,7 +1044,7 @@ export const useGameStore = create<GameStore>()(
         }
       }
       
-      // Allow the sale if another player has enough ownership to become president
+      // Block the sale if no other player has enough ownership to become president
       if (!hasOtherPlayerWithEnoughOwnership) {
         console.log('No other player has enough ownership, showing notification');
         get().addNotification({
@@ -1043,8 +1055,11 @@ export const useGameStore = create<GameStore>()(
         });
         return false;
       } else {
-        console.log('Another player has enough ownership, allowing sale');
+        console.log('Another player has enough ownership, allowing President\'s Certificate sale');
       }
+    } else {
+      console.log('✅ Player is selling regular certificates only, no presidency transfer needed');
+      console.log('=== DEBUG: Proceeding with regular certificate sale ===');
     }
     
     // Calculate total value
@@ -1056,7 +1071,9 @@ export const useGameStore = create<GameStore>()(
       playerCertificates: [...player.certificates],
       corporationShares: [...(corporation.playerShares.get(playerId) || [])],
       ipoShares: [...corporation.ipoShares],
-      bankShares: [...corporation.bankShares]
+      bankShares: [...corporation.bankShares],
+      stockPrice: corporation.sharePrice,
+      stockPosition: state.stockMarket.tokenPositions.get(corporationId)
     };
     
     // CRITICAL: Check if president is selling and needs to transfer presidency BEFORE validating regular certificates
@@ -1064,19 +1081,19 @@ export const useGameStore = create<GameStore>()(
     let actualPlayerCerts = playerCerts; // Track the actual certificates after potential presidency transfer
     let actualRemainingCerts = player.certificates; // Track remaining certificates after potential presidency transfer
     
-    // Initial certificate filtering
-    const regularCerts = playerCerts.filter(cert => !cert.isPresident);
-    const presidentCerts = playerCerts.filter(cert => cert.isPresident);
-    
-    console.log('=== PRESIDENCY TRANSFER CHECK (BEFORE SALE) ===');
+    console.log('=== DEBUG: SECOND PRESIDENCY TRANSFER CHECK ===');
     console.log(`Seller is president: ${sellerIsPresident}`);
     console.log(`President certificates: ${presidentCerts.length}`);
     console.log(`Regular certificates: ${regularCerts.length}`);
     console.log(`Shares being sold: ${shares}`);
     console.log(`Player ID: ${playerId}`);
+    console.log(`Condition check: sellerIsPresident (${sellerIsPresident}) && presidentCerts.length > 0 (${presidentCerts.length > 0}) && shares > regularCerts.length (${shares > regularCerts.length})`);
+    console.log(`Overall condition: ${sellerIsPresident && presidentCerts.length > 0 && shares > regularCerts.length}`);
     
-    if (sellerIsPresident && presidentCerts.length > 0) {
+    // Only do presidency transfer if we're actually trying to sell a president's certificate
+    if (sellerIsPresident && presidentCerts.length > 0 && shares > regularCerts.length) {
       console.log(`🔍 ANALYZING PRESIDENCY TRANSFER ELIGIBILITY`);
+      console.log('=== DEBUG: Presidency transfer check triggered ===');
       
       // Find player with most shares (excluding current president)
       let maxShares = 0;
@@ -1211,7 +1228,10 @@ export const useGameStore = create<GameStore>()(
         console.log(`=== END PRESIDENCY EXCHANGE ===`);
       } else {
         console.log(`❌ NO PRESIDENCY TRANSFER: Max ownership ${maxShares}% < Current president ${currentPresidentTotalPercentage}%`);
-            }
+      }
+    } else {
+      console.log('=== DEBUG: Second presidency transfer check NOT triggered ===');
+      console.log('✅ No presidency transfer needed, proceeding with sale');
     }
     
     // Proceed with normal sale (using potentially updated certificates after presidency transfer)
@@ -1292,6 +1312,12 @@ export const useGameStore = create<GameStore>()(
       duration: 3000
     });
     
+    // Move stock price down after selling shares
+    console.log('=== DEBUG: Attempting to move stock price down ===');
+    const priceMoveResult = get().moveStockPrice(corporationId, 'down');
+    console.log('=== DEBUG: Stock price move result:', priceMoveResult);
+    
+    console.log('=== DEBUG: sellCertificate completed successfully ===');
     return true;
   },
 
@@ -1378,11 +1404,26 @@ export const useGameStore = create<GameStore>()(
               ...corp,
               ipoShares: updatedIPOShares,
               bankShares: lastAction.data.previousState.bankShares,
-              playerShares: currentPlayerShares
+              playerShares: currentPlayerShares,
+              // Restore stock price if it was recorded
+              ...(lastAction.data.previousState.stockPrice !== undefined && {
+                sharePrice: lastAction.data.previousState.stockPrice
+              })
             };
           }
           return corp;
         });
+      }
+
+      // Restore stock market token position if it was recorded
+      if (lastAction.data.previousState.stockPosition && lastAction.data.corporationId) {
+        newState.stockMarket = {
+          ...state.stockMarket,
+          tokenPositions: new Map([
+            ...state.stockMarket.tokenPositions,
+            [lastAction.data.corporationId, lastAction.data.previousState.stockPosition]
+          ])
+        };
       }
 
       // Remove the last action
@@ -1588,56 +1629,91 @@ export const useGameStore = create<GameStore>()(
   },
 
   moveStockPrice: (corporationId: string, direction: 'up' | 'down') => {
+    console.log('=== DEBUG: moveStockPrice called ===');
+    console.log('corporationId:', corporationId);
+    console.log('direction:', direction);
+    
     const state = get();
     const corporation = state.corporations.find(c => c.id === corporationId);
-    if (!corporation) return false;
+    if (!corporation) {
+      console.log('=== DEBUG: Corporation not found ===');
+      return false;
+    }
     
     const currentPosition = state.stockMarket.tokenPositions.get(corporationId);
-    if (!currentPosition) return false;
+    if (!currentPosition) {
+      console.log('=== DEBUG: No current position found for corporation ===');
+      return false;
+    }
+    console.log('=== DEBUG: Current position:', currentPosition);
     
     let newPosition: Point;
     if (direction === 'up') {
-      // Move up and right (diagonal)
-      newPosition = { x: currentPosition.x + 1, y: currentPosition.y - 1 };
+      // Move directly up 1 grid box (for end-of-round movement when all shares owned by players)
+      newPosition = { x: currentPosition.x, y: currentPosition.y - 1 };
     } else {
-      // Move down and left (diagonal)
-      newPosition = { x: currentPosition.x - 1, y: currentPosition.y + 1 };
+      // Move directly down 1 grid box (for share sales)
+      newPosition = { x: currentPosition.x, y: currentPosition.y + 1 };
     }
     
-    // Check bounds
+    console.log('=== DEBUG: New position:', newPosition);
+    
+    // Check bounds - if at bottom of column (down) or top of column (up), don't move
     if (newPosition.y < 0 || newPosition.y >= STOCK_MARKET_GRID.length || 
         newPosition.x < 0 || newPosition.x >= STOCK_MARKET_GRID[newPosition.y].length ||
         STOCK_MARKET_GRID[newPosition.y][newPosition.x] === null) {
+      console.log('=== DEBUG: Position out of bounds or invalid, cannot move ===');
       return false;
     }
     
     // Update position and share price
     const newPrice = parseInt(STOCK_MARKET_GRID[newPosition.y][newPosition.x] as string);
+    console.log('=== DEBUG: New price:', newPrice);
     
-    set((state) => ({
-      corporations: state.corporations.map(c => 
-        c.id === corporationId 
-          ? { ...c, sharePrice: newPrice }
-          : c
-      ),
-      stockMarket: {
-        ...state.stockMarket,
-        tokenPositions: new Map([
-          ...state.stockMarket.tokenPositions,
-          [corporationId, newPosition]
-        ])
-      }
-    }));
+    console.log('=== DEBUG: About to update state with new price and position ===');
+    set((state) => {
+      console.log('=== DEBUG: Inside set function, updating state ===');
+      const updatedState = {
+        corporations: state.corporations.map(c => 
+          c.id === corporationId 
+            ? { ...c, sharePrice: newPrice }
+            : c
+        ),
+        stockMarket: {
+          ...state.stockMarket,
+          tokenPositions: new Map([
+            ...state.stockMarket.tokenPositions,
+            [corporationId, newPosition]
+          ])
+        }
+      };
+      console.log('=== DEBUG: State update completed ===');
+      return updatedState;
+    });
     
+    // Verify the state was updated
+    const updatedState = get();
+    const updatedCorporation = updatedState.corporations.find(c => c.id === corporationId);
+    const updatedPosition = updatedState.stockMarket.tokenPositions.get(corporationId);
+    console.log('=== DEBUG: After state update - Corporation share price:', updatedCorporation?.sharePrice);
+    console.log('=== DEBUG: After state update - Token position:', updatedPosition);
+    
+    console.log('=== DEBUG: Stock price move completed successfully ===');
     return true;
   },
 
+  // Note: Dividend-related price movements (rules 4 & 5) happen in the operating round
+  // and are not yet implemented. These functions are placeholders for future implementation.
   payDividend: (corporationId: string) => {
-    return get().moveStockPrice(corporationId, 'up');
+    // TODO: Implement dividend price movement (move right 1 grid box, or up if at right edge)
+    console.warn('Dividend price movement not yet implemented');
+    return false;
   },
 
   withholdDividend: (corporationId: string) => {
-    return get().moveStockPrice(corporationId, 'down');
+    // TODO: Implement withholding price movement (move left 1 grid box, or down if at left edge)
+    console.warn('Withholding price movement not yet implemented');
+    return false;
   }
     }),
     {

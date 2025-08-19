@@ -221,6 +221,8 @@ export interface StockAction {
       ipoShares: Certificate[];
       bankShares: Certificate[];
       purchasedCertificate?: Certificate;
+      stockPrice?: number;
+      stockPosition?: Point;
     };
   };
 }

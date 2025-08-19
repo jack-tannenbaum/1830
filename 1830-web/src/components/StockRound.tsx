@@ -6,6 +6,14 @@ import { StockMarketDisplay } from './StockMarketDisplay';
 
 const StockRound: React.FC = () => {
   const { corporations, players, currentPlayerIndex, buyCertificate, sellCertificate, undoLastStockAction, nextStockPlayer, stockRoundState } = useGameStore();
+  
+  // Debug: Log corporation share prices to see if they're updating
+  React.useEffect(() => {
+    console.log('=== DEBUG: StockRound component - Corporation share prices ===');
+    corporations.forEach(corp => {
+      console.log(`${corp.abbreviation}: $${corp.sharePrice}`);
+    });
+  }, [corporations]);
   const colors = useColors();
   const [debugFirstStockRound, setDebugFirstStockRound] = React.useState(false);
   const [showParValueModal, setShowParValueModal] = React.useState(false);
