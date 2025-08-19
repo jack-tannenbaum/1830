@@ -320,7 +320,7 @@ export const GameBoard: React.FC = () => {
             <div className={`${colors.card.backgroundHighlight} rounded-lg ${colors.card.shadow} p-4 ${colors.card.borderAlt}`}>
               <h3 className={`text-lg font-semibold mb-3 ${colors.text.primary}`}>Corporations</h3>
               {corporations.length === 0 ? (
-                <p className={`${colors.text.tertiary} text-sm`}>No corporations floated yet</p>
+                <p className={`${colors.text.tertiary} text-sm`}>No corporations started yet</p>
               ) : (
                 <div className="space-y-2">
                   {corporations.map((corp) => (

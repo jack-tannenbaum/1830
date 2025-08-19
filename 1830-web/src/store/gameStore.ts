@@ -38,6 +38,16 @@ const generateInitialIPOShares = (corporationId: string): Certificate[] => {
   return shares;
 };
 
+const checkCorporationFloated = (corporation: Corporation): boolean => {
+  // Calculate total shares sold from IPO
+  const totalSharesSold = Array.from(corporation.playerShares.values())
+    .flat()
+    .reduce((total, cert) => total + cert.percentage, 0);
+  
+  // Corporation is floated when 60% of shares are sold from IPO
+  return totalSharesSold >= 60;
+};
+
 const createCorporationFromTemplate = (corpTemplate: typeof CORPORATIONS[0]): Corporation => {
   const corporationId = crypto.randomUUID();
   return {
@@ -53,7 +63,8 @@ const createCorporationFromTemplate = (corpTemplate: typeof CORPORATIONS[0]): Co
     ipoShares: generateInitialIPOShares(corporationId),
     bankShares: [],
     playerShares: new Map(),
-    floated: false,
+    started: false, // Corporation is started when president's certificate is purchased
+    floated: false, // Corporation is floated when 60% of shares are sold from IPO
     color: corpTemplate.color
   };
 };
@@ -786,6 +797,25 @@ export const useGameStore = create<GameStore>()(
         updatedPlayerShares.set(playerId, [...buyerShares, certificate]);
       }
       
+      const updatedCorporation = {
+        ...corporation,
+        presidentId: newPresidentId,
+        ipoShares: [...corporation.ipoShares],
+        playerShares: updatedPlayerShares
+      };
+
+      // Check if corporation should be floated (60% of shares sold)
+      const shouldBeFloated = checkCorporationFloated(updatedCorporation);
+      if (shouldBeFloated && !updatedCorporation.floated) {
+        updatedCorporation.floated = true;
+        get().addNotification({
+          title: corporation.name,
+          message: `${corporation.name} is now floated! (60% of shares sold)`,
+          type: 'info',
+          duration: 4000
+        });
+      }
+
       return {
         players: state.players.map(p => 
           p.id === playerId 
@@ -794,12 +824,7 @@ export const useGameStore = create<GameStore>()(
         ),
         corporations: state.corporations.map(c => 
           c.id === corporationId 
-            ? { 
-                ...c, 
-                presidentId: newPresidentId,
-                ipoShares: [...c.ipoShares],
-                playerShares: updatedPlayerShares
-              }
+            ? updatedCorporation
             : c
         )
       };
@@ -1127,8 +1152,8 @@ export const useGameStore = create<GameStore>()(
     const existingCorporation = state.corporations.find(c => c.abbreviation === corporationAbbreviation);
     if (!existingCorporation) return false;
     
-    // Check if corporation is already floated
-    if (existingCorporation.floated) return false;
+    // Check if corporation is already started
+    if (existingCorporation.started) return false;
     
     // Calculate president certificate cost (20% of par value)
     const presidentCost = parValue * 2; // President's Certificate represents 2 shares (20% ownership)
@@ -1166,7 +1191,7 @@ export const useGameStore = create<GameStore>()(
               presidentId: playerId,
               parValue: parValue,
               sharePrice: parValue,
-              floated: true,
+              started: true, // Corporation is now started
               ipoShares: c.ipoShares.filter(cert => !cert.isPresident), // Remove president cert from IPO
               playerShares: new Map([[playerId, [presidentCertificate]]]) // Add president cert only
             }
@@ -1240,7 +1265,7 @@ export const useGameStore = create<GameStore>()(
 
       // Restore corporation state
       if (lastAction.type === 'start_corporation') {
-        // Handle start_corporation undo - revert corporation to unfloated state
+        // Handle start_corporation undo - revert corporation to unstarted state
         newState.corporations = state.corporations.map(corp => {
           if (corp.abbreviation === lastAction.data.corporationAbbreviation) {
             return {
@@ -1248,7 +1273,8 @@ export const useGameStore = create<GameStore>()(
               presidentId: undefined,
               parValue: undefined,
               sharePrice: 0,
-              floated: false,
+              started: false, // Revert to unstarted state
+              floated: false, // Corporation is floated when 60% of shares are sold from IPO
               ipoShares: generateInitialIPOShares(corp.id), // Restore all IPO shares
               playerShares: new Map() // Clear player shares
             };

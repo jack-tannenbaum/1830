@@ -34,8 +34,8 @@ const StockRound: React.FC = () => {
     const corporation = corporations.find(c => c.id === corporationId);
     if (!corporation) return;
     
-    // Check if this is the first purchase (corporation not floated)
-    if (!corporation.floated) {
+    // Check if this is the first purchase (corporation not started)
+    if (!corporation.started) {
       // Show par value selection modal
       setSelectedCorporation(corporation);
       setSelectedParValue(100); // Default to $100
@@ -43,7 +43,7 @@ const StockRound: React.FC = () => {
       return;
     }
     
-    // Regular purchase for floated corporation
+    // Regular purchase for started corporation
     buyCertificate(currentPlayer.id, corporationId);
   };
 

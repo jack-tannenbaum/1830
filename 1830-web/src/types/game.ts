@@ -99,7 +99,8 @@ export interface Corporation {
   ipoShares: Certificate[]; // Shares available for purchase from IPO
   bankShares: Certificate[]; // Shares in bank pool (sold by players)
   playerShares: Map<string, Certificate[]>; // playerId -> certificates owned
-  floated: boolean;
+  started: boolean; // Corporation is started when president's certificate is purchased
+  floated: boolean; // Corporation is floated when 60% of shares are sold from IPO
   color: string;
 }
 
