@@ -3,6 +3,7 @@ import { useGameStore } from '../store/gameStore';
 import { useColors } from '../styles/colors';
 import { RoundType } from '../types/game';
 import type { Corporation, Certificate } from '../types/game';
+import { StockMarketDisplay } from './StockMarketDisplay';
 
 const StockRound: React.FC = () => {
   const { corporations, players, currentPlayerIndex, phase, buyCertificate, sellCertificate, buyPresidentCertificate, undoLastStockAction, nextStockPlayer, stockRoundState } = useGameStore();
@@ -11,6 +12,7 @@ const StockRound: React.FC = () => {
   const [showParValueModal, setShowParValueModal] = React.useState(false);
   const [selectedCorporation, setSelectedCorporation] = React.useState<Corporation | null>(null);
   const [selectedParValue, setSelectedParValue] = React.useState<number>(100);
+  const [showStockMarket, setShowStockMarket] = React.useState(false);
 
   // Check if this is the first stock round (phase 1) or debug override
   const isFirstStockRound = debugFirstStockRound ? false : true; // Debug override: when checked, force later stock round (selling enabled)
@@ -61,6 +63,11 @@ const StockRound: React.FC = () => {
     // For now, sell 1 share (10% certificate)
     const result = sellCertificate(currentPlayer.id, corporationId, 1);
     console.log('sellCertificate result:', result);
+  };
+
+  const handleCorporationClick = (corporation: Corporation) => {
+    // This could be used for additional actions when clicking on a corporation in the stock market
+    console.log('Corporation clicked:', corporation.name);
   };
   
   
@@ -166,9 +173,47 @@ const StockRound: React.FC = () => {
   return (
     <div className={`${colors.card.background} rounded-lg ${colors.card.shadow} p-6`}>
       <div className="flex justify-between items-center mb-6">
-        <h2 className={`text-xl font-semibold ${colors.text.primary}`}>Stock Round</h2>
-        <div className={`text-sm ${colors.text.secondary}`}>
-          Current Player: {players[currentPlayerIndex]?.name}
+        <div>
+          <h2 className={`text-xl font-semibold ${colors.text.primary}`}>Stock Round</h2>
+          <div className={`text-sm ${colors.text.secondary}`}>
+            Current Player: {players[currentPlayerIndex]?.name}
+          </div>
+        </div>
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={() => undoLastStockAction()}
+            disabled={!stockRoundState?.currentPlayerActions || stockRoundState.currentPlayerActions.length === 0}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              stockRoundState?.currentPlayerActions && stockRoundState.currentPlayerActions.length > 0
+                ? `${colors.button.secondary} hover:bg-red-600 hover:text-white`
+                : colors.button.disabled
+            }`}
+            title={stockRoundState?.currentPlayerActions && stockRoundState.currentPlayerActions.length > 0 
+              ? "Undo last action" 
+              : "No actions to undo"
+            }
+          >
+            ↩️ Undo
+          </button>
+
+          <button
+            onClick={() => nextStockPlayer()}
+            className={`px-4 py-2 rounded-lg ${colors.button.secondary} font-medium transition-colors`}
+          >
+            Pass
+          </button>
+
+          <button
+            onClick={() => setShowStockMarket(!showStockMarket)}
+            className={`px-4 py-2 rounded-lg transition-colors duration-300 font-medium ${
+              showStockMarket 
+                ? 'bg-green-600 hover:bg-green-700 text-white' 
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
+            title={showStockMarket ? "Switch to Corporations View" : "Switch to Stock Market View"}
+          >
+            {showStockMarket ? '📊 Stock Market' : '🏢 Corporations'}
+          </button>
         </div>
       </div>
 
@@ -192,7 +237,14 @@ const StockRound: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Content Area */}
+      {showStockMarket ? (
+        <StockMarketDisplay 
+          onCorporationClick={handleCorporationClick}
+          className="w-full"
+        />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {corporations.length === 0 ? (
           <div className={`col-span-full text-center py-8 ${colors.text.secondary}`}>
             <div className="mb-4">No corporations available. Please start a new game.</div>
@@ -335,33 +387,10 @@ const StockRound: React.FC = () => {
           </div>
         ))
         )}
-      </div>
+        </div>
+      )}
 
-      {/* Action Buttons */}
-      <div className="mt-6 flex justify-center space-x-4">
-        <button
-          onClick={() => undoLastStockAction()}
-          disabled={!stockRoundState?.currentPlayerActions || stockRoundState.currentPlayerActions.length === 0}
-          className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-            stockRoundState?.currentPlayerActions && stockRoundState.currentPlayerActions.length > 0
-              ? `${colors.button.secondary} hover:bg-red-600 hover:text-white`
-              : colors.button.disabled
-          }`}
-          title={stockRoundState?.currentPlayerActions && stockRoundState.currentPlayerActions.length > 0 
-            ? "Undo last action" 
-            : "No actions to undo"
-          }
-        >
-          ↩️ Undo
-        </button>
 
-        <button
-          onClick={() => nextStockPlayer()}
-          className={`px-6 py-3 rounded-lg ${colors.button.secondary} font-medium transition-colors`}
-        >
-          Pass
-        </button>
-      </div>
 
       {/* Par Value Selection Modal */}
 
