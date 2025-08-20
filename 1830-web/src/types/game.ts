@@ -155,6 +155,7 @@ export interface GameState {
   history: GameAction[];
   stockRoundState?: {
     currentPlayerActions: StockAction[];
+    stockRoundActions: StockAction[]; // Track all actions in the current stock round
     turnStartTime: number;
     pendingStockMovements?: { corporationId: string; sharesSold: number }[];
   };
