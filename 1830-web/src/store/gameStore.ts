@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { GameState, Player, GameAction, AuctionState, PrivateCompanyState, OwnedPrivateCompany, AuctionSummary, Corporation, Certificate, Point, StockAction } from '../types/game';
-import { RoundType, ActionType } from '../types/game';
+import { RoundType, ActionType, GamePhase } from '../types/game';
 import { GAME_CONSTANTS, PRIVATE_COMPANIES, CORPORATIONS, STOCK_MARKET_GRID } from '../types/constants';
+import { getPhaseConfig } from '../types/phaseConfigs';
 
 // Helper functions for stock market
 const findParValuePosition = (parValue: number): Point | null => {
@@ -130,11 +131,15 @@ interface GameStore extends GameState {
   moveStockPrice: (corporationId: string, direction: 'up' | 'down') => boolean;
   payDividend: (corporationId: string) => boolean;
   withholdDividend: (corporationId: string) => boolean;
+  
+  // Phase management
+  advancePhase: () => void;
+  getCurrentPhaseConfig: () => ReturnType<typeof getPhaseConfig>;
 }
 
 const createInitialState = (): Partial<GameState> => ({
   id: crypto.randomUUID(),
-  phase: 1,
+  phase: GamePhase.ONE,
   roundType: RoundType.PRIVATE_AUCTION,
   currentPlayerIndex: 0,
   players: [],
@@ -1600,7 +1605,8 @@ export const useGameStore = create<GameStore>()(
     }));
 
     // Check if all players have passed consecutively
-    const consecutivePasses = (state.stockRoundState?.consecutivePasses || 0) + 1;
+    const updatedState = get();
+    const consecutivePasses = updatedState.stockRoundState?.consecutivePasses || 0;
     if (consecutivePasses >= state.players.length) {
       // End stock round and move to operating round
       get().endStockRound();
@@ -1636,7 +1642,7 @@ export const useGameStore = create<GameStore>()(
         stockRoundActions: [...(state.stockRoundState?.stockRoundActions || []), stockAction],
         turnStartTime: state.stockRoundState?.turnStartTime || Date.now(),
         pendingStockMovements: state.stockRoundState?.pendingStockMovements || [],
-        consecutivePasses: 0 // Reset consecutive passes when player takes action
+        consecutivePasses: (state.stockRoundState?.consecutivePasses || 0) + 1 // Increment consecutive passes
       }
     }));
 
@@ -1953,6 +1959,32 @@ export const useGameStore = create<GameStore>()(
     }));
     
     console.log('=== DEBUG: Pending stock movements processed and cleared ===');
+  },
+
+  advancePhase: () => {
+    const state = get();
+    const currentPhase = state.phase;
+    
+    // Advance to next phase
+    const nextPhase = currentPhase + 1;
+    if (nextPhase <= GamePhase.SEVEN) {
+      set(() => ({
+        phase: nextPhase as GamePhase
+      }));
+      
+      const newPhaseConfig = getPhaseConfig(nextPhase as GamePhase);
+      get().addNotification({
+        title: 'Phase Advanced',
+        message: `Advanced to ${newPhaseConfig.name}`,
+        type: 'info',
+        duration: 4000
+      });
+    }
+  },
+
+  getCurrentPhaseConfig: () => {
+    const state = get();
+    return getPhaseConfig(state.phase);
   }
     }),
     {

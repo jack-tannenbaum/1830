@@ -46,6 +46,8 @@ export const StockMarketDisplay: React.FC<StockMarketDisplayProps> = ({
         }
       }
     }
+    // Sort by when they arrived at this position (newest at bottom)
+    // For now, we'll use the order they appear in the map, but ideally we'd track arrival time
     return corporationsAtPosition;
   };
 
@@ -79,26 +81,37 @@ export const StockMarketDisplay: React.FC<StockMarketDisplayProps> = ({
                 {value || ''}
                 {corporationsAtPosition.length > 0 && (
                   <>
-                    <div className="absolute inset-0 flex items-center justify-center gap-1 p-1">
-                      {corporationsAtPosition.map((corporation) => (
-                        <div 
-                          key={corporation.id}
-                          className="flex-shrink-0"
-                          style={{ 
-                            backgroundColor: corporation.color,
-                            borderRadius: '4px',
-                            padding: '2px 4px',
-                            fontSize: '8px',
-                            fontWeight: 'bold',
-                            color: 'white',
-                            textShadow: '1px 1px 1px rgba(0,0,0,0.5)',
-                            minWidth: '16px',
-                            textAlign: 'center'
-                          }}
-                        >
-                          {corporation.abbreviation}
-                        </div>
-                      ))}
+                    <div className="absolute inset-0 flex items-center justify-center p-1">
+                      {corporationsAtPosition.map((corporation, index) => {
+                        const reverseIndex = corporationsAtPosition.length - 1 - index;
+                        const totalOffset = (corporationsAtPosition.length - 1) * 2; // Total width of spread
+                        const centerOffset = totalOffset / 2; // Half the spread width
+                        const totalHeightOffset = (corporationsAtPosition.length - 1) * 1; // Total height of spread
+                        const centerHeightOffset = totalHeightOffset / 2; // Half the height spread
+                        return (
+                          <div 
+                            key={corporation.id}
+                            className="flex-shrink-0 absolute"
+                            style={{ 
+                              backgroundColor: corporation.color,
+                              borderRadius: '3px',
+                              padding: '2px 4px',
+                              fontSize: '8px',
+                              fontWeight: 'bold',
+                              color: 'white',
+                              textShadow: '1px 1px 1px rgba(0,0,0,0.5)',
+                              minWidth: '16px',
+                              textAlign: 'center',
+                              left: `calc(50% - 8px + ${(reverseIndex * 2) - centerOffset}px)`, // Center the spread horizontally
+                              top: `calc(50% - 6px + ${(reverseIndex * 1) - centerHeightOffset}px)`, // Center the spread vertically
+                              zIndex: reverseIndex + 1, // Stack order: newer tokens on top
+                              border: '1px solid rgba(255,255,255,0.3)' // Add subtle border for better visibility
+                            }}
+                          >
+                            {corporation.abbreviation}
+                          </div>
+                        );
+                      })}
                     </div>
                     
                     {/* Hover Popup - only when corporations are present */}

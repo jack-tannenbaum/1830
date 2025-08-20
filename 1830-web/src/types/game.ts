@@ -8,6 +8,16 @@ export enum RoundType {
   OPERATING = 'operating'
 }
 
+export enum GamePhase {
+  ONE = 1,    // 2-train phase (private auction)
+  TWO = 2,    // 2-train phase (after privates purchased)
+  THREE = 3,  // 3-train phase
+  FOUR = 4,   // 4-train phase
+  FIVE = 5,   // 5-train phase
+  SIX = 6,    // 6-train phase
+  SEVEN = 7   // Diesel phase
+}
+
 export enum TrainType {
   TWO = 'two',
   THREE = 'three', 
@@ -129,9 +139,25 @@ export interface GameMap {
   tiles: Map<string, Tile>;
 }
 
+export interface PhaseConfig {
+  phase: GamePhase;
+  name: string;
+  description: string;
+  trainTypes: TrainType[];
+  maxTrainsPerCorp: number;
+  allowedTileColors: TileColor[];
+  canPurchasePrivates: boolean;
+  operatingRoundsBetweenStock: number;
+  offBoardValueRule: 'lesser' | 'greater';
+  privateCompaniesClosed: boolean;
+  twoTrainsObsolete: boolean;
+  threeTrainsObsolete: boolean;
+  fourTrainsObsolete: boolean;
+}
+
 export interface GameState {
   id: string;
-  phase: number;
+  phase: GamePhase;
   roundType: RoundType;
   currentPlayerIndex: number;
   players: Player[];

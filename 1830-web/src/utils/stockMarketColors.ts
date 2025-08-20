@@ -6,6 +6,7 @@ export interface StockMarket {
 
 export interface Colors {
   text: {
+    primary: string;
     tertiary: string;
   };
 }
@@ -37,17 +38,19 @@ export const getMarketPriceColor = (
   const squareColor = STOCK_MARKET_COLOR_GRID[y][x];
 
   // Return appropriate text color based on square color
+  // Use CSS variables that match the stock market colors
   switch (squareColor) {
     case 'red':
+      return colors.text.primary; // Use primary color (same as par value) instead of red for red squares
     case 'white':
-      return colors.text.tertiary; // Default font color for red and white squares
+      return 'text-[var(--stock-gray)]'; // Gray text for white/gray squares
     case 'yellow':
-      return 'text-yellow-600'; // Yellow text for yellow squares
+      return 'text-[var(--stock-yellow)]'; // Yellow text for yellow squares
     case 'orange':
-      return 'text-orange-600'; // Orange text for orange squares
+      return 'text-[var(--stock-orange)]'; // Orange text for orange squares
     case 'brown':
-      return 'text-amber-800'; // Brown text for brown squares
+      return 'text-[var(--stock-brown)]'; // Brown text for brown squares
     default:
-      return colors.text.tertiary; // Default fallback
+      return colors.text.primary; // Default fallback - use primary color (same as par value)
   }
 };

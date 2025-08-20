@@ -1,14 +1,48 @@
 import React, { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
-import { RoundType, Corporation } from '../types/game';
+import { RoundType, GamePhase } from '../types/game';
 import { PrivateAuction } from './PrivateAuction';
 import { AuctionSummary } from './AuctionSummary';
 import { NotificationPopup } from './NotificationPopup';
 import { useColors } from '../styles/colors';
 import { useThemeStore } from '../store/themeStore';
 import StockRound from './StockRound';
-import { STOCK_MARKET_GRID, STOCK_MARKET_COLOR_GRID } from '../types/constants';
+import { StockMarketDisplay } from './StockMarketDisplay';
 import { getMarketPriceColor } from '../utils/stockMarketColors';
+import { getPhaseConfig } from '../types/phaseConfigs';
+
+// Phase Tooltip Component
+const PhaseTooltip: React.FC<{ phase: GamePhase; colors: ReturnType<typeof useColors> }> = ({ phase, colors }) => {
+  const currentPhaseConfig = getPhaseConfig(phase);
+  const nextPhase = phase < GamePhase.SEVEN ? phase + 1 : null;
+  const nextPhaseConfig = nextPhase ? getPhaseConfig(nextPhase as GamePhase) : null;
+  
+  const getTrainTypeName = (trainType: string) => {
+    switch (trainType) {
+      case 'two': return '2-Train';
+      case 'three': return '3-Train';
+      case 'four': return '4-Train';
+      case 'five': return '5-Train';
+      case 'six': return '6-Train';
+      case 'diesel': return 'Diesel';
+      default: return trainType;
+    }
+  };
+
+  return (
+    <div>
+      <div className={`text-sm ${colors.text.primary} space-y-1`}>
+        <div className={`font-bold ${colors.text.secondary} mb-2`}>{currentPhaseConfig.name}</div>
+        <div><strong>Trains:</strong> {currentPhaseConfig.trainTypes.map(getTrainTypeName).join(', ')}</div>
+        <div><strong>Tiles:</strong> {currentPhaseConfig.allowedTileColors.length > 0 ? currentPhaseConfig.allowedTileColors.join(', ') : 'None'}</div>
+        <div><strong>Max Trains:</strong> {currentPhaseConfig.maxTrainsPerCorp} per corp</div>
+        {nextPhaseConfig && (
+          <div><strong>Next:</strong> Buy first {getTrainTypeName(nextPhaseConfig.trainTypes[0]?.toLowerCase() || '')}</div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export const GameBoard: React.FC = () => {
   const { 
@@ -27,6 +61,7 @@ export const GameBoard: React.FC = () => {
   const { theme, toggleTheme } = useThemeStore();
   const currentPlayer = players[currentPlayerIndex];
   const [showStockMarket, setShowStockMarket] = useState(true);
+  const [showPhaseTooltip, setShowPhaseTooltip] = useState(false);
 
 
 
@@ -43,7 +78,18 @@ export const GameBoard: React.FC = () => {
             <div>
               <h1 className={`text-2xl font-bold ${colors.layout.header.title}`}>1830: Railways & Robber Barons</h1>
               <p className={colors.layout.header.subtitle}>
-                Phase {phase} • {
+                <span 
+                  className="cursor-help hover:underline relative"
+                  onMouseEnter={() => setShowPhaseTooltip(true)}
+                  onMouseLeave={() => setShowPhaseTooltip(false)}
+                >
+                  Phase {phase}
+                  {showPhaseTooltip && (
+                    <div className={`fixed z-50 p-4 rounded-lg shadow-lg border ${colors.card.background} ${colors.card.shadow} ${colors.card.border} w-80`} style={{ top: '80px', left: '20px' }}>
+                      <PhaseTooltip phase={phase} colors={colors} />
+                    </div>
+                  )}
+                </span> • {
                   roundType === RoundType.PRIVATE_AUCTION ? 'Private Company Auction' :
                   roundType === RoundType.AUCTION_SUMMARY ? 'Auction Summary' :
                   roundType === RoundType.STOCK ? 'Stock Round' : 'Operating Round'
@@ -147,116 +193,7 @@ export const GameBoard: React.FC = () => {
                 
                 {showStockMarket ? (
                   /* Stock Market */
-                  <div className={`${colors.gameBoard.stockMarket.background} p-4 rounded-lg`}>
-                    <div className="grid grid-cols-19 gap-1 text-xs">
-                      {(() => {
-
-                                                const getCellStyle = (value: string | null, rowIndex: number, colIndex: number) => {
-                          if (!value) return {};
-                          
-                          // Get color from the color grid
-                          const color = STOCK_MARKET_COLOR_GRID[rowIndex]?.[colIndex];
-                          if (!color) return {};
-                          
-                          // Map color names to CSS variables
-                          switch (color) {
-                            case 'orange': return { backgroundColor: 'var(--stock-orange)' };
-                            case 'yellow': return { backgroundColor: 'var(--stock-yellow)' };
-                            case 'red': return { backgroundColor: 'var(--stock-red)' };
-                            case 'brown': return { backgroundColor: 'var(--stock-brown)' };
-                            case 'white': return { backgroundColor: 'var(--stock-gray)' };
-                            default: return {};
-                          }
-                        };
-
-                        const getCorporationsAtPosition = (rowIndex: number, colIndex: number) => {
-                          const corporationsAtPosition: Corporation[] = [];
-                          for (const [corporationId, position] of stockMarket.tokenPositions.entries()) {
-                            if (position.x === colIndex && position.y === rowIndex) {
-                              const corporation = corporations.find(corp => corp.id === corporationId);
-                              if (corporation) {
-                                corporationsAtPosition.push(corporation);
-                              }
-                            }
-                          }
-                          return corporationsAtPosition;
-                        };
-
-                        return STOCK_MARKET_GRID.flatMap((row, rowIndex) => 
-                          row.map((value, colIndex) => {
-                            const corporationsAtPosition = getCorporationsAtPosition(rowIndex, colIndex);
-                            
-                            // Create hover tooltip content
-                            const tooltipContent = value 
-                              ? corporationsAtPosition.length > 0
-                                ? `$${value} - ${corporationsAtPosition.map(corp => `${corp.name} (${corp.abbreviation})`).join(', ')}`
-                                : `$${value}`
-                              : '';
-                            
-                            return (
-                              <div 
-                                key={`${rowIndex}-${colIndex}`} 
-                                className={`stock-cell relative ${corporationsAtPosition.length > 0 ? 'group' : ''}`}
-                                style={getCellStyle(value, rowIndex, colIndex)}
-                                title={corporationsAtPosition.length > 0 ? tooltipContent : (value ? `$${value}` : '')}
-                              >
-                                {value || ''}
-                                {corporationsAtPosition.length > 0 && (
-                                  <>
-                                    <div className="absolute inset-0 flex items-center justify-center gap-1 p-1">
-                                      {corporationsAtPosition.map((corporation) => (
-                                        <div 
-                                          key={corporation.id}
-                                          className="flex-shrink-0"
-                                          style={{ 
-                                            backgroundColor: corporation.color,
-                                            borderRadius: '4px',
-                                            padding: '2px 4px',
-                                            fontSize: '8px',
-                                            fontWeight: 'bold',
-                                            color: 'white',
-                                            textShadow: '1px 1px 1px rgba(0,0,0,0.5)',
-                                            minWidth: '16px',
-                                            textAlign: 'center'
-                                          }}
-                                        >
-                                          {corporation.abbreviation}
-                                        </div>
-                                      ))}
-                                    </div>
-                                    
-                                    {/* Hover Popup - only when corporations are present */}
-                                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
-                                      <div className={`${colors.card.background} ${colors.card.border} rounded-lg shadow-lg p-3 border-2 min-w-max`}>
-                                        <div className={`text-sm font-semibold ${colors.text.primary} mb-2`}>
-                                          ${value} - {corporationsAtPosition.length} corporation{corporationsAtPosition.length > 1 ? 's' : ''}
-                                        </div>
-                                        <div className="space-y-1">
-                                          {corporationsAtPosition.map((corporation) => (
-                                            <div key={corporation.id} className="flex items-center gap-2">
-                                              <div 
-                                                className="w-3 h-3 rounded"
-                                                style={{ backgroundColor: corporation.color }}
-                                              />
-                                              <span className={`text-sm ${colors.text.secondary}`}>
-                                                {corporation.name} ({corporation.abbreviation})
-                                              </span>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                      {/* Arrow pointing down */}
-                                      <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800 mx-auto"></div>
-                                    </div>
-                                  </>
-                                )}
-                              </div>
-                            );
-                          })
-                        );
-                      })()}
-                    </div>
-                  </div>
+                  <StockMarketDisplay />
                 ) : (
                   /* Railway Map */
                   <div className={`aspect-video ${colors.gameBoard.map.background} rounded-lg border-2 border-dashed ${colors.gameBoard.map.border} flex items-center justify-center`}>
@@ -288,24 +225,64 @@ export const GameBoard: React.FC = () => {
                     }`}
                   >
                     <div className="flex justify-between items-center mb-2">
-                      <span className={`font-medium ${colors.player.name}`}>{player.name}</span>
+                      <span className={`font-medium ${colors.text.primary}`}>{player.name}</span>
                       <span className={`${colors.player.cash} font-semibold`}>${player.cash}</span>
                     </div>
                     
-                    <div className={`text-xs mb-2 ${colors.text.tertiary}`}>
+                    <div className={`text-xs ${colors.text.tertiary} mb-3`}>
                       {player.certificates.length} certificates
                     </div>
                     
+                    {/* Stock Holdings */}
+                    {(() => {
+                      const stockHoldings = corporations
+                        .map(corp => {
+                          const playerShares = corp.playerShares.get(player.id) || [];
+                          const totalPercentage = playerShares.reduce((sum, cert) => sum + cert.percentage, 0);
+                          const isPresident = corp.presidentId === player.id;
+                          return { corporation: corp, shares: playerShares, totalPercentage, isPresident };
+                        })
+                        .filter(holding => holding.totalPercentage > 0)
+                        .sort((a, b) => b.totalPercentage - a.totalPercentage);
+                      
+                      return stockHoldings.length > 0 ? (
+                        <div className="mb-3">
+                          <div className={`text-xs font-semibold ${colors.text.secondary} mb-2 uppercase tracking-wide`}>Stock Holdings</div>
+                          <div className="space-y-1.5">
+                            {stockHoldings.map((holding) => (
+                              <div key={holding.corporation.id} className="text-xs flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <div 
+                                    className="w-2.5 h-2.5 rounded"
+                                    style={{ backgroundColor: holding.corporation.color }}
+                                  />
+                                  <span className={`font-medium ${colors.corporation.name}`}>
+                                    {holding.corporation.abbreviation}
+                                  </span>
+                                  {holding.isPresident && (
+                                    <span className="text-xs font-bold" style={{ color: '#FFD700' }}>P</span>
+                                  )}
+                                </div>
+                                <span className={`${colors.text.primary} font-semibold`}>
+                                  {holding.totalPercentage}%
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null;
+                    })()}
+                    
                     {/* Private Companies */}
                     {player.privateCompanies.length > 0 && (
-                      <div className="mt-2">
-                        <div className={`text-xs font-medium ${colors.private.name} mb-1`}>Private Companies:</div>
-                        <div className="space-y-1">
+                      <div className="mb-3">
+                        <div className={`text-xs font-semibold ${colors.text.secondary} mb-2 uppercase tracking-wide`}>Private Companies</div>
+                        <div className="space-y-1.5">
                           {player.privateCompanies.map((privateCompany) => (
-                            <div key={privateCompany.id} className={`text-xs ${colors.auction.bidInput.background} ${colors.auction.bidInput.border} rounded px-2 py-1`}>
-                              <div className={`font-medium ${colors.private.name}`}>{privateCompany.name}</div>
+                            <div key={privateCompany.id} className="text-xs">
+                              <div className={`font-medium ${colors.text.primary}`}>{privateCompany.name}</div>
                               {roundType === RoundType.PRIVATE_AUCTION && (
-                                <div className={colors.private.name}>Bought for ${privateCompany.purchasePrice}</div>
+                                <div className={`${colors.text.tertiary} text-xs`}>Bought for ${privateCompany.purchasePrice}</div>
                               )}
                             </div>
                           ))}
