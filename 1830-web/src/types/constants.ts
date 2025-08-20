@@ -27,7 +27,7 @@ export const TRAIN_DATA: Record<TrainType, { cost: number; maxCities: number; qu
 
 export const CORPORATIONS: Omit<Corporation, 'id' | 'presidentId' | 'sharePrice' | 'treasury' | 'trains' | 'tokens' | 'ipoShares' | 'bankShares' | 'playerShares' | 'floated'>[] = [
   { name: 'Pennsylvania Railroad', abbreviation: 'PRR', parValue: undefined, color: '#008000', started: false },
-  { name: 'New York Central', abbreviation: 'NYC', parValue: undefined, color: '#000000', started: false },
+  { name: 'New York Central', abbreviation: 'NYC', parValue: undefined, color: '#1f2937', started: false },
   { name: 'Canadian Pacific', abbreviation: 'CPR', parValue: undefined, color: '#FF0000', started: false },
   { name: 'Baltimore & Ohio', abbreviation: 'B&O', parValue: undefined, color: '#800080', started: false },
   { name: 'Chesapeake & Ohio', abbreviation: 'C&O', parValue: undefined, color: '#0000FF', started: false },

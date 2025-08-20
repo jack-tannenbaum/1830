@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { GameState, Player, GameAction, AuctionState, PrivateCompanyState, OwnedPrivateCompany, AuctionSummary, Corporation, Certificate, Point, StockAction } from '../types/game';
+import type { GameState, Player, GameAction, AuctionState, PrivateCompanyState, OwnedPrivateCompany, AuctionSummary, Corporation, Certificate, Point, StockAction, StockMarket } from '../types/game';
 import { RoundType, ActionType, GamePhase } from '../types/game';
 import { GAME_CONSTANTS, PRIVATE_COMPANIES, CORPORATIONS, STOCK_MARKET_GRID } from '../types/constants';
 import { getPhaseConfig } from '../types/phaseConfigs';
@@ -56,6 +56,42 @@ const checkCorporationFloated = (corporation: Corporation): boolean => {
   
   // Corporation is floated when 60% of shares are sold from IPO
   return totalSharesSold >= 60;
+};
+
+
+
+const calculateOperatingOrder = (corporations: Corporation[], stockMarket: StockMarket): string[] => {
+  // Get all floated corporations
+  const floatedCorporations = corporations.filter(corp => corp.floated);
+  
+  // Sort by stock market position according to 1830 rules:
+  // 1. Highest share value first
+  // 2. If same value, rightmost column first
+  // 3. If same column, top token first (highest row number = lower on chart)
+  return floatedCorporations
+    .map(corp => {
+      const position = stockMarket.tokenPositions.get(corp.id);
+      return {
+        id: corp.id,
+        sharePrice: corp.sharePrice,
+        position: position || { x: 0, y: 0 }
+      };
+    })
+    .sort((a, b) => {
+      // First: sort by share price (highest first)
+      if (a.sharePrice !== b.sharePrice) {
+        return b.sharePrice - a.sharePrice;
+      }
+      
+      // Second: if same price, sort by column (rightmost first)
+      if (a.position.x !== b.position.x) {
+        return b.position.x - a.position.x;
+      }
+      
+      // Third: if same column, sort by row (top token first = lower row number)
+      return a.position.y - b.position.y;
+    })
+    .map(corp => corp.id);
 };
 
 const createCorporationFromTemplate = (corpTemplate: typeof CORPORATIONS[0]): Corporation => {
@@ -123,6 +159,7 @@ interface GameStore extends GameState {
   nextStockPlayer: () => void;
   passStockRound: () => void;
   endStockRound: () => void;
+  nextOperatingCorporation: () => void;
   
   // Process pending stock movements at end of turn
   processPendingStockMovements: () => void;
@@ -560,6 +597,106 @@ export const useGameStore = create<GameStore>()(
 
 
   continueToStockRound: () => {
+    const state = get();
+    
+    // Handle C&A effect: give PRR 10% share to C&A owner
+    const camdenAmboyOwner = state.players.find(player => 
+      player.privateCompanies.some(pc => pc.name === 'Camden & Amboy')
+    );
+    
+    if (camdenAmboyOwner) {
+      const prr = state.corporations.find(c => c.name === 'Pennsylvania Railroad');
+      
+      if (prr && !prr.started) {
+        // Create regular 10% certificate for PRR (NOT president's certificate)
+        const certificate: Certificate = {
+          corporationId: prr.id,
+          percentage: 10, // Regular 10% share, NOT president's certificate
+          isPresident: false
+        };
+        
+        // Update state to give certificate (PRR is NOT started yet)
+        set(() => ({
+          players: state.players.map(p => 
+            p.id === camdenAmboyOwner.id 
+              ? { ...p, certificates: [...p.certificates, certificate] }
+              : p
+          )
+        }));
+        
+        // Add notification
+        get().addNotification({
+          title: 'Camden & Amboy Effect',
+          message: `${camdenAmboyOwner.name} immediately receives a 10% share of Pennsylvania Railroad`,
+          type: 'success',
+          duration: 5000
+        });
+      }
+    }
+    
+    // Handle B&O effect: immediately give president's certificate, then trigger par value modal
+    const baltimoreOhioOwner = state.players.find(player => 
+      player.privateCompanies.some(pc => pc.name === 'Baltimore & Ohio')
+    );
+    
+    if (baltimoreOhioOwner) {
+      const bo = state.corporations.find(c => c.name === 'Baltimore & Ohio');
+      
+      if (bo && !bo.started) {
+        // Find the president certificate
+        const presidentCertificate = bo.ipoShares.find(cert => cert.isPresident);
+        if (!presidentCertificate) {
+          get().addNotification({
+            title: 'Error',
+            message: 'No president certificate found for Baltimore & Ohio',
+            type: 'warning',
+            duration: 3000
+          });
+          return;
+        }
+        
+        // Immediately give the president's certificate to the B&O owner
+        set((state) => ({
+          players: state.players.map(p => 
+            p.id === baltimoreOhioOwner.id 
+              ? { 
+                  ...p, 
+                  certificates: [...p.certificates, presidentCertificate]
+                }
+              : p
+          ),
+          corporations: state.corporations.map(c => 
+            c.id === bo.id 
+              ? {
+                  ...c,
+                  presidentId: baltimoreOhioOwner.id,
+                  started: true, // Corporation is now started
+                  ipoShares: c.ipoShares.filter(cert => !cert.isPresident), // Remove president cert from IPO
+                  playerShares: new Map([[baltimoreOhioOwner.id, [presidentCertificate]]]) // Add president cert only
+                }
+              : c
+          )
+        }));
+        
+        // Trigger par value modal for the B&O owner
+        set(() => ({
+          currentPlayerIndex: state.players.findIndex(p => p.id === baltimoreOhioOwner.id),
+          pendingBoeffect: {
+            playerId: baltimoreOhioOwner.id,
+            corporationId: bo.id
+          }
+        }));
+        
+        // Add notification
+        get().addNotification({
+          title: 'Baltimore & Ohio Effect',
+          message: `${baltimoreOhioOwner.name} immediately receives the President's certificate of Baltimore & Ohio and must set its par value`,
+          type: 'success',
+          duration: 5000
+        });
+      }
+    }
+    
     set(() => ({
       roundType: RoundType.STOCK,
       auctionSummary: undefined,
@@ -706,7 +843,11 @@ export const useGameStore = create<GameStore>()(
       
       // Calculate president certificate cost (20% of par value)
       const presidentCost = parValue * 2; // President's Certificate represents 2 shares (20% ownership)
-      if (player.cash < presidentCost) {
+      
+      // Check if this is a B&O effect (free purchase)
+      const isBoeffect = state.pendingBoeffect?.playerId === playerId && state.pendingBoeffect?.corporationId === corporationId;
+      
+      if (!isBoeffect && player.cash < presidentCost) {
         get().addNotification({
           title: 'Insufficient Funds',
           message: `${player.name} doesn't have enough money to buy the President's Certificate for $${presidentCost}`,
@@ -738,7 +879,7 @@ export const useGameStore = create<GameStore>()(
           p.id === playerId 
             ? { 
                 ...p, 
-                cash: p.cash - presidentCost,
+                cash: isBoeffect ? p.cash : p.cash - presidentCost, // Free for B&O effect
                 certificates: [...p.certificates, presidentCertificate]
               }
             : p
@@ -784,7 +925,8 @@ export const useGameStore = create<GameStore>()(
           stockRoundActions: [...(state.stockRoundState?.stockRoundActions || []), stockAction],
           turnStartTime: state.stockRoundState?.turnStartTime || Date.now(),
           consecutivePasses: 0 // Reset consecutive passes when player takes action
-        }
+        },
+        pendingBoeffect: isBoeffect ? undefined : state.pendingBoeffect // Clear B&O effect after purchase
       }));
       
       // Add notification
@@ -947,11 +1089,16 @@ export const useGameStore = create<GameStore>()(
       const shouldBeFloated = checkCorporationFloated(updatedCorporation);
       if (shouldBeFloated && !updatedCorporation.floated) {
         updatedCorporation.floated = true;
+        
+        // Add 10x par value to treasury when floated
+        const treasuryAmount = (updatedCorporation.parValue || 0) * 10;
+        updatedCorporation.treasury += treasuryAmount;
+        
         get().addNotification({
           title: corporation.name,
-          message: `${corporation.name} is now floated! (60% of shares sold)`,
-          type: 'info',
-          duration: 4000
+          message: `${corporation.name} is now floated! (60% of shares sold) Treasury receives $${treasuryAmount}`,
+          type: 'success',
+          duration: 5000
         });
       }
 
@@ -1000,6 +1147,35 @@ export const useGameStore = create<GameStore>()(
     
     // Process pending stock movements when taking another action
     get().processPendingStockMovements();
+    
+    // Handle B&O par value setting (if this was a B&O purchase and it needs par value set)
+    if (corporation.name === 'Baltimore & Ohio' && corporation.started && !corporation.parValue && parValue) {
+      // Set the par value and share price for B&O
+      const parValuePosition = findParValuePosition(parValue);
+      if (parValuePosition) {
+        set((state) => ({
+          corporations: state.corporations.map(c => 
+            c.id === corporationId 
+              ? { ...c, parValue: parValue, sharePrice: parValue }
+              : c
+          ),
+          stockMarket: {
+            ...state.stockMarket,
+            tokenPositions: new Map([
+              ...state.stockMarket.tokenPositions,
+              [corporationId, parValuePosition]
+            ])
+          }
+        }));
+        
+        get().addNotification({
+          title: 'Baltimore & Ohio Par Value Set',
+          message: `${corporation.name} par value set to $${parValue}`,
+          type: 'success',
+          duration: 3000
+        });
+      }
+    }
     
     return true;
   },
@@ -1659,21 +1835,82 @@ export const useGameStore = create<GameStore>()(
   },
 
   endStockRound: () => {
+    const state = get();
+    
+    // Calculate operating order for floated corporations
+    const operatingOrder = calculateOperatingOrder(state.corporations, state.stockMarket);
+    
+    // Distribute private company income to owners
+    const updatedPlayers = state.players.map(player => {
+      const totalPrivateIncome = player.privateCompanies.reduce((sum, privateCompany) => sum + privateCompany.revenue, 0);
+      if (totalPrivateIncome > 0) {
+        get().addNotification({
+          title: 'Private Company Income',
+          message: `${player.name} receives $${totalPrivateIncome} from private companies`,
+          type: 'info',
+          duration: 3000
+        });
+      }
+      return {
+        ...player,
+        cash: player.cash + totalPrivateIncome
+      };
+    });
     
     // Add notification
     get().addNotification({
-      title: 'Stock Round Complete',
-      message: 'All players passed consecutively. Moving to Operating Round.',
+      title: '🎯 Stock Round Has Ended!',
+      message: 'All players passed consecutively. Private companies have paid their owners. Moving to Operating Round.',
       type: 'success',
-      duration: 4000
+      duration: 6000
     });
 
     // Move to operating round
     set(() => ({
+      players: updatedPlayers,
       roundType: RoundType.OPERATING,
       currentPlayerIndex: 0, // Reset to first player for operating round
-      stockRoundState: undefined // Clear stock round state
+      stockRoundState: undefined, // Clear stock round state
+      operatingRoundState: {
+        operatingOrder,
+        currentOperatingIndex: 0,
+        operatingCorporationId: operatingOrder.length > 0 ? operatingOrder[0] : undefined
+      }
     }));
+  },
+
+  nextOperatingCorporation: () => {
+    const state = get();
+    if (!state.operatingRoundState) return;
+    
+    const { operatingOrder, currentOperatingIndex } = state.operatingRoundState;
+    const nextIndex = currentOperatingIndex + 1;
+    
+    if (nextIndex < operatingOrder.length) {
+      // Move to next corporation
+      set(() => ({
+        operatingRoundState: {
+          operatingOrder: state.operatingRoundState!.operatingOrder,
+          currentOperatingIndex: nextIndex,
+          operatingCorporationId: operatingOrder[nextIndex]
+        }
+      }));
+    } else {
+      // Operating round complete
+      get().addNotification({
+        title: 'Operating Round Complete',
+        message: 'All corporations have operated. Moving to next round.',
+        type: 'success',
+        duration: 4000
+      });
+      
+      // Clear operating round state and move to next round
+      set(() => ({
+        operatingRoundState: undefined
+      }));
+      
+      // TODO: Move to next round (stock round or next operating round based on phase)
+    }
   },
 
   // Bid-off methods

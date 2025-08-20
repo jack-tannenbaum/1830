@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { GameSetup } from './components/GameSetup';
 import { GameBoard } from './components/GameBoard';
 import { useGameStore } from './store/gameStore';
+import { useThemeStore } from './store/themeStore';
 
 function App() {
   const [gameStarted, setGameStarted] = useState(false);
   const [showResumeMenu, setShowResumeMenu] = useState(false);
   const { players, hasActiveGame, newGame } = useGameStore();
+  const { theme } = useThemeStore();
 
   useEffect(() => {
     // Check if there's an active game when the app loads
@@ -14,6 +16,11 @@ function App() {
       setShowResumeMenu(true);
     }
   }, [hasActiveGame, gameStarted]);
+
+  useEffect(() => {
+    // Set theme attribute on document element
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   const handleGameStart = () => {
     setGameStarted(true);

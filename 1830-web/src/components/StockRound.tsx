@@ -5,8 +5,34 @@ import type { Corporation } from '../types/game';
 import { StockMarketDisplay } from './StockMarketDisplay';
 import { getMarketPriceColor } from '../utils/stockMarketColors';
 
+// Import findParValuePosition from gameStore
+const findParValuePosition = (parValue: number): { x: number; y: number } | null => {
+  const STOCK_MARKET_GRID = [
+    ["60", "67", "71", "76", "82", "90", "100", "112", "125", "142", "160", "180", "200", "225", "250", "275", "300", "325", "350"],
+    ["53", "60", "66", "70", "76", "82", "90", "100", "112", "125", "142", "160", "180", "200", "220", "240", "260", "280", "300"],
+    ["46", "55", "60", "65", "70", "76", "82", "90", "100", "111", "125", "140", "155", "170", "185", "200", null, null, null],
+    ["39", "48", "54", "60", "66", "71", "76", "82", "90", "100", "110", "120", "130", null, null, null, null, null, null],
+    ["32", "41", "48", "55", "62", "67", "71", "76", "82", "90", "100", null, null, null, null, null, null, null, null],
+    ["25", "34", "42", "50", "58", "65", "67", "71", "75", "80", null, null, null, null, null, null, null, null, null],
+    ["18", "27", "36", "45", "54", "63", "67", "69", "70", null, null, null, null, null, null, null, null, null, null],
+    ["10", "20", "30", "40", "50", "60", "67", "68", null, null, null, null, null, null, null, null, null, null, null],
+    [null, "10", "20", "30", "40", "50", "60", null, null, null, null, null, null, null, null, null, null, null, null],
+    [null, null, "10", "20", "30", "40", "50", null, null, null, null, null, null, null, null, null, null, null, null],
+    [null, null, null, "10", "20", "30", "40", null, null, null, null, null, null, null, null, null, null, null, null]
+  ] as const;
+
+  for (let y = 0; y < STOCK_MARKET_GRID.length; y++) {
+    for (let x = 0; x < STOCK_MARKET_GRID[y].length; x++) {
+      if (STOCK_MARKET_GRID[y][x] === parValue.toString()) {
+        return { x, y };
+      }
+    }
+  }
+  return null;
+};
+
 const StockRound: React.FC = () => {
-  const { corporations, players, currentPlayerIndex, stockMarket, buyCertificate, sellCertificate, undoLastStockAction, passStockRound, stockRoundState } = useGameStore();
+  const { corporations, players, currentPlayerIndex, stockMarket, buyCertificate, sellCertificate, undoLastStockAction, passStockRound, stockRoundState, pendingBoeffect } = useGameStore();
   
   // Debug: Log corporation share prices to see if they're updating
   React.useEffect(() => {
@@ -15,12 +41,27 @@ const StockRound: React.FC = () => {
       console.log(`${corp.abbreviation}: $${corp.sharePrice}`);
     });
   }, [corporations]);
+
   const colors = useColors();
   const [debugFirstStockRound, setDebugFirstStockRound] = React.useState(false);
   const [showParValueModal, setShowParValueModal] = React.useState(false);
   const [selectedCorporation, setSelectedCorporation] = React.useState<Corporation | null>(null);
   const [selectedParValue, setSelectedParValue] = React.useState<number>(100);
   const [showStockMarket, setShowStockMarket] = React.useState(false);
+  const boEffectShownRef = React.useRef<string | null>(null);
+
+  // Handle B&O effect - show par value modal when pendingBoeffect is set
+  React.useEffect(() => {
+    if (pendingBoeffect && boEffectShownRef.current !== pendingBoeffect.corporationId) {
+      const corporation = corporations.find(c => c.id === pendingBoeffect.corporationId);
+      if (corporation) {
+        setSelectedCorporation(corporation);
+        setSelectedParValue(100); // Default to $100
+        setShowParValueModal(true);
+        boEffectShownRef.current = pendingBoeffect.corporationId; // Mark as shown
+      }
+    }
+  }, [pendingBoeffect, corporations]);
 
   // Check if this is the first stock round (phase 1) or debug override
   const isFirstStockRound = debugFirstStockRound ? false : true; // Debug override: when checked, force later stock round (selling enabled)
@@ -510,10 +551,44 @@ const StockRound: React.FC = () => {
                 onClick={() => {
                   const currentPlayer = players[currentPlayerIndex];
                   if (currentPlayer && selectedCorporation) {
-                    buyCertificate(currentPlayer.id, selectedCorporation.id, selectedParValue);
+                    // Check if this is a B&O effect (corporation already started but needs par value)
+                    const isBoeffect = selectedCorporation.name === 'Baltimore & Ohio' && selectedCorporation.started && !selectedCorporation.parValue;
+                    
+                    if (isBoeffect) {
+                      // For B&O effect, just set the par value without buying another certificate
+                      const parValuePosition = findParValuePosition(selectedParValue);
+                      if (parValuePosition) {
+                        useGameStore.getState().setGameState({
+                          corporations: corporations.map(c => 
+                            c.id === selectedCorporation.id 
+                              ? { ...c, parValue: selectedParValue, sharePrice: selectedParValue }
+                              : c
+                          ),
+                          stockMarket: {
+                            ...stockMarket,
+                            tokenPositions: new Map([
+                              ...stockMarket.tokenPositions,
+                              [selectedCorporation.id, parValuePosition]
+                            ])
+                          },
+                          pendingBoeffect: undefined // Clear the pending effect
+                        });
+                        
+                        useGameStore.getState().addNotification({
+                          title: 'Baltimore & Ohio Par Value Set',
+                          message: `${selectedCorporation.name} par value set to $${selectedParValue}`,
+                          type: 'success',
+                          duration: 3000
+                        });
+                      }
+                    } else {
+                      // Normal corporation start
+                      buyCertificate(currentPlayer.id, selectedCorporation.id, selectedParValue);
+                    }
                   }
                   setShowParValueModal(false);
                   setSelectedCorporation(null);
+                  boEffectShownRef.current = null; // Reset the ref
                 }}
                 style={{
                   flex: 1,

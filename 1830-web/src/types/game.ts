@@ -186,6 +186,15 @@ export interface GameState {
     pendingStockMovements?: { corporationId: string; sharesSold: number }[];
     consecutivePasses?: number;
   };
+  operatingRoundState?: {
+    operatingOrder: string[]; // corporation IDs in operating order
+    currentOperatingIndex: number; // index of current corporation operating
+    operatingCorporationId?: string; // ID of corporation currently operating
+  };
+  pendingBoeffect?: {
+    playerId: string;
+    corporationId: string;
+  };
 }
 
 export interface PlayerBid {
