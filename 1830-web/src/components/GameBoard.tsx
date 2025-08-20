@@ -8,6 +8,7 @@ import { useColors } from '../styles/colors';
 import { useThemeStore } from '../store/themeStore';
 import StockRound from './StockRound';
 import { STOCK_MARKET_GRID, STOCK_MARKET_COLOR_GRID } from '../types/constants';
+import { getMarketPriceColor } from '../utils/stockMarketColors';
 
 export const GameBoard: React.FC = () => {
   const { 
@@ -340,7 +341,10 @@ export const GameBoard: React.FC = () => {
                             </p>
                           )}
                           {corporation.parValue && (
-                            <p className={`text-sm italic ${colors.text.tertiary}`} style={{ margin: '0' }}>PAR: ${corporation.parValue} | MP: ${corporation.sharePrice}</p>
+                            <p className={`text-sm italic`} style={{ margin: '0' }}>
+                              <span className={colors.text.tertiary}>PAR: ${corporation.parValue} | MP: </span>
+                              <span className={getMarketPriceColor(corporation.id, stockMarket, colors)}>${corporation.sharePrice}</span>
+                            </p>
                           )}
                         </div>
                       </div>

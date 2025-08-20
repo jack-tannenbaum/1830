@@ -147,7 +147,7 @@ export interface GameState {
     id: string;
     title: string;
     message: string;
-    type: 'bid' | 'purchase' | 'info' | 'warning';
+    type: 'bid' | 'purchase' | 'info' | 'warning' | 'success';
     duration?: number;
     timestamp: number; // For queuing and ordering
   }[];
@@ -157,6 +157,7 @@ export interface GameState {
     currentPlayerActions: StockAction[];
     turnStartTime: number;
     pendingStockMovements?: { corporationId: string; sharesSold: number }[];
+    consecutivePasses?: number;
   };
 }
 
@@ -207,14 +208,14 @@ export interface AuctionSummary {
 export interface StockAction {
   id: string;
   playerId: string;
-  type: 'buy_certificate' | 'sell_certificate' | 'start_corporation';
+  type: 'buy_certificate' | 'sell_certificate' | 'start_corporation' | 'pass_stock';
   timestamp: number;
   data: {
     corporationId?: string;
     corporationAbbreviation?: string;
     parValue?: number;
     shares?: number;
-    previousState: {
+    previousState?: {
       playerCash: number;
       playerCertificates: Certificate[];
       corporationShares: Certificate[];

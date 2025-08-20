@@ -3,9 +3,10 @@ import { useGameStore } from '../store/gameStore';
 import { useColors } from '../styles/colors';
 import type { Corporation } from '../types/game';
 import { StockMarketDisplay } from './StockMarketDisplay';
+import { getMarketPriceColor } from '../utils/stockMarketColors';
 
 const StockRound: React.FC = () => {
-  const { corporations, players, currentPlayerIndex, buyCertificate, sellCertificate, undoLastStockAction, nextStockPlayer, stockRoundState } = useGameStore();
+  const { corporations, players, currentPlayerIndex, stockMarket, buyCertificate, sellCertificate, undoLastStockAction, passStockRound, stockRoundState } = useGameStore();
   const colors = useColors();
   const [debugFirstStockRound, setDebugFirstStockRound] = React.useState(false);
   const [showParValueModal, setShowParValueModal] = React.useState(false);
@@ -30,10 +31,33 @@ const StockRound: React.FC = () => {
       action.type === 'buy_certificate' || action.type === 'start_corporation'
     );
     
-    if (hasBoughtThisTurn) return;
+    if (hasBoughtThisTurn) {
+      useGameStore.getState().addNotification({
+        title: 'Already Bought This Turn',
+        message: 'You have already bought shares this turn',
+        type: 'warning',
+        duration: 3000
+      });
+      return;
+    }
     
     const corporation = corporations.find(c => c.id === corporationId);
     if (!corporation) return;
+    
+    // Check if player has sold this corporation this round (can't buy the same corporation after selling it)
+    const hasSoldThisCorporationThisRound = stockRoundState?.currentPlayerActions.some(action => 
+      action.type === 'sell_certificate' && action.data?.corporationId === corporationId
+    );
+    
+    if (hasSoldThisCorporationThisRound) {
+      useGameStore.getState().addNotification({
+        title: 'Cannot Buy After Selling',
+        message: `You cannot buy ${corporation.abbreviation} shares after selling ${corporation.abbreviation} shares in the same round`,
+        type: 'warning',
+        duration: 3000
+      });
+      return;
+    }
     
     // Check if this is the first purchase (corporation not started)
     if (!corporation.started) {
@@ -59,13 +83,42 @@ const StockRound: React.FC = () => {
       action.type === 'buy_certificate' || action.type === 'start_corporation'
     );
     
-    if (hasBoughtThisTurn) return;
+    if (hasBoughtThisTurn) {
+      useGameStore.getState().addNotification({
+        title: 'Already Bought This Turn',
+        message: 'You have already bought shares this turn',
+        type: 'warning',
+        duration: 3000
+      });
+      return;
+    }
     
     const corporation = corporations.find(c => c.id === corporationId);
     if (!corporation) return;
     
+    // Check if player has sold this corporation this round (can't buy the same corporation after selling it)
+    const hasSoldThisCorporationThisRound = stockRoundState?.currentPlayerActions.some(action => 
+      action.type === 'sell_certificate' && action.data?.corporationId === corporationId
+    );
+    
+    if (hasSoldThisCorporationThisRound) {
+      useGameStore.getState().addNotification({
+        title: 'Cannot Buy After Selling',
+        message: `You cannot buy ${corporation.abbreviation} shares after selling ${corporation.abbreviation} shares in the same round`,
+        type: 'warning',
+        duration: 3000
+      });
+      return;
+    }
+    
     // Can only buy from bank if corporation is started
     if (!corporation.started) {
+      useGameStore.getState().addNotification({
+        title: 'Corporation Not Started',
+        message: 'Cannot buy from bank pool - corporation has not been started yet',
+        type: 'warning',
+        duration: 3000
+      });
       return;
     }
     
@@ -141,7 +194,7 @@ const StockRound: React.FC = () => {
           </button>
 
           <button
-            onClick={() => nextStockPlayer()}
+            onClick={() => passStockRound()}
             className={`px-4 py-2 rounded-lg ${colors.button.secondary} font-medium transition-colors`}
           >
             Pass
@@ -291,7 +344,7 @@ const StockRound: React.FC = () => {
               </div>
               <div className="text-center">
                 <div className={`text-xs ${colors.text.secondary}`}>Market Price</div>
-                <div className={`text-sm font-semibold ${colors.text.primary}`}>
+                <div className={`text-sm font-semibold ${corporation.sharePrice ? getMarketPriceColor(corporation.id, stockMarket, colors) : colors.text.primary}`}>
                   ${corporation.sharePrice || 'Not Set'}
                 </div>
               </div>
@@ -303,11 +356,6 @@ const StockRound: React.FC = () => {
               <div className="flex space-x-1">
                 <button
                   onClick={() => handleBuyFromIPO(corporation.id)}
-                  disabled={stockRoundState?.currentPlayerActions.some(action => 
-                    action.type === 'buy_certificate' || action.type === 'start_corporation'
-                  ) || stockRoundState?.currentPlayerActions.some(action => 
-                    action.type === 'sell_certificate' && action.data?.corporationId === corporation.id
-                  ) || corporation.ipoShares.length === 0}
                   className={`flex-1 py-2 px-2 rounded text-xs font-medium transition-colors ${
                     stockRoundState?.currentPlayerActions.some(action => 
                       action.type === 'buy_certificate' || action.type === 'start_corporation'
@@ -323,7 +371,7 @@ const StockRound: React.FC = () => {
                     ) ? "Already bought this turn" : 
                     stockRoundState?.currentPlayerActions.some(action => 
                       action.type === 'sell_certificate' && action.data?.corporationId === corporation.id
-                    ) ? "Cannot buy after selling this corporation this turn" :
+                    ) ? "Cannot buy after selling this corporation this round" :
                     corporation.ipoShares.length === 0 ? "No shares in IPO" :
                     `Buy from IPO at $${corporation.parValue || 'par value'}`
                   }
@@ -332,11 +380,6 @@ const StockRound: React.FC = () => {
                 </button>
                 <button
                   onClick={() => handleBuyFromBank(corporation.id)}
-                  disabled={stockRoundState?.currentPlayerActions.some(action => 
-                    action.type === 'buy_certificate' || action.type === 'start_corporation'
-                  ) || stockRoundState?.currentPlayerActions.some(action => 
-                    action.type === 'sell_certificate' && action.data?.corporationId === corporation.id
-                  ) || corporation.bankShares.length === 0}
                   className={`flex-1 py-2 px-2 rounded text-xs font-medium transition-colors ${
                     stockRoundState?.currentPlayerActions.some(action => 
                       action.type === 'buy_certificate' || action.type === 'start_corporation'
@@ -352,7 +395,7 @@ const StockRound: React.FC = () => {
                     ) ? "Already bought this turn" : 
                     stockRoundState?.currentPlayerActions.some(action => 
                       action.type === 'sell_certificate' && action.data?.corporationId === corporation.id
-                    ) ? "Cannot buy after selling this corporation this turn" :
+                    ) ? "Cannot buy after selling this corporation this round" :
                     corporation.bankShares.length === 0 ? "No shares in bank" :
                     `Buy from bank at $${corporation.sharePrice}`
                   }
@@ -364,7 +407,6 @@ const StockRound: React.FC = () => {
               {/* Sell Button */}
               <button
                 onClick={() => handleSellCertificate(corporation.id)}
-                disabled={isFirstStockRound}
                 className={`w-full py-2 px-3 rounded text-xs font-medium transition-colors ${
                   isFirstStockRound ? colors.button.disabled : colors.button.secondary
                 }`}
