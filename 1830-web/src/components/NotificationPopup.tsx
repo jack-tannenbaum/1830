@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useColors } from '../styles/colors';
 
-export type NotificationType = 'bid' | 'purchase' | 'info' | 'warning';
+export type NotificationType = 'bid' | 'purchase' | 'info' | 'warning' | 'success';
 
 interface NotificationPopupProps {
   id: string;

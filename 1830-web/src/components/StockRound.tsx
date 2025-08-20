@@ -7,6 +7,14 @@ import { getMarketPriceColor } from '../utils/stockMarketColors';
 
 const StockRound: React.FC = () => {
   const { corporations, players, currentPlayerIndex, stockMarket, buyCertificate, sellCertificate, undoLastStockAction, passStockRound, stockRoundState } = useGameStore();
+  
+  // Debug: Log corporation share prices to see if they're updating
+  React.useEffect(() => {
+    console.log('=== DEBUG: StockRound component - Corporation share prices ===');
+    corporations.forEach(corp => {
+      console.log(`${corp.abbreviation}: $${corp.sharePrice}`);
+    });
+  }, [corporations]);
   const colors = useColors();
   const [debugFirstStockRound, setDebugFirstStockRound] = React.useState(false);
   const [showParValueModal, setShowParValueModal] = React.useState(false);
@@ -356,10 +364,15 @@ const StockRound: React.FC = () => {
               <div className="flex space-x-1">
                 <button
                   onClick={() => handleBuyFromIPO(corporation.id)}
+                  disabled={stockRoundState?.currentPlayerActions.some(action => 
+                    action.type === 'buy_certificate' || action.type === 'start_corporation'
+                  ) || stockRoundState?.stockRoundActions.some(action => 
+                    action.type === 'sell_certificate' && action.data?.corporationId === corporation.id
+                  ) || corporation.ipoShares.length === 0}
                   className={`flex-1 py-2 px-2 rounded text-xs font-medium transition-colors ${
                     stockRoundState?.currentPlayerActions.some(action => 
                       action.type === 'buy_certificate' || action.type === 'start_corporation'
-                    ) || stockRoundState?.currentPlayerActions.some(action => 
+                    ) || stockRoundState?.stockRoundActions.some(action => 
                       action.type === 'sell_certificate' && action.data?.corporationId === corporation.id
                     ) || corporation.ipoShares.length === 0
                       ? colors.button.disabled
@@ -369,9 +382,9 @@ const StockRound: React.FC = () => {
                     stockRoundState?.currentPlayerActions.some(action => 
                       action.type === 'buy_certificate' || action.type === 'start_corporation'
                     ) ? "Already bought this turn" : 
-                    stockRoundState?.currentPlayerActions.some(action => 
+                    stockRoundState?.stockRoundActions.some(action => 
                       action.type === 'sell_certificate' && action.data?.corporationId === corporation.id
-                    ) ? "Cannot buy after selling this corporation this round" :
+                    ) ? "Cannot buy after selling this corporation this stock round" :
                     corporation.ipoShares.length === 0 ? "No shares in IPO" :
                     `Buy from IPO at $${corporation.parValue || 'par value'}`
                   }
@@ -380,10 +393,15 @@ const StockRound: React.FC = () => {
                 </button>
                 <button
                   onClick={() => handleBuyFromBank(corporation.id)}
+                  disabled={stockRoundState?.currentPlayerActions.some(action => 
+                    action.type === 'buy_certificate' || action.type === 'start_corporation'
+                  ) || stockRoundState?.stockRoundActions.some(action => 
+                    action.type === 'sell_certificate' && action.data?.corporationId === corporation.id
+                  ) || corporation.bankShares.length === 0}
                   className={`flex-1 py-2 px-2 rounded text-xs font-medium transition-colors ${
                     stockRoundState?.currentPlayerActions.some(action => 
                       action.type === 'buy_certificate' || action.type === 'start_corporation'
-                    ) || stockRoundState?.currentPlayerActions.some(action => 
+                    ) || stockRoundState?.stockRoundActions.some(action => 
                       action.type === 'sell_certificate' && action.data?.corporationId === corporation.id
                     ) || corporation.bankShares.length === 0
                       ? colors.button.disabled
@@ -393,9 +411,9 @@ const StockRound: React.FC = () => {
                     stockRoundState?.currentPlayerActions.some(action => 
                       action.type === 'buy_certificate' || action.type === 'start_corporation'
                     ) ? "Already bought this turn" : 
-                    stockRoundState?.currentPlayerActions.some(action => 
+                    stockRoundState?.stockRoundActions.some(action => 
                       action.type === 'sell_certificate' && action.data?.corporationId === corporation.id
-                    ) ? "Cannot buy after selling this corporation this round" :
+                    ) ? "Cannot buy after selling this corporation this stock round" :
                     corporation.bankShares.length === 0 ? "No shares in bank" :
                     `Buy from bank at $${corporation.sharePrice}`
                   }
