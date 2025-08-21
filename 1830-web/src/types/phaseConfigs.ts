@@ -9,7 +9,7 @@ export const PHASE_CONFIGS: Record<GamePhase, PhaseConfig> = {
     maxTrainsPerCorp: 0, // No corporations operating yet
     allowedTileColors: [],
     canPurchasePrivates: false,
-    operatingRoundsBetweenStock: 0,
+    operatingRoundsBetweenStock: 1,
     offBoardValueRule: 'lesser',
     privateCompaniesClosed: false,
     twoTrainsObsolete: false,

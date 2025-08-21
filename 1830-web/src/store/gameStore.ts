@@ -181,6 +181,9 @@ interface GameStore extends GameState {
   isPlayerTurn: (playerId: string) => boolean;
   getCurrentTurnInfo: () => TurnInfo | undefined;
   getAvailableActions: () => ActionType[];
+  
+  // Operating round management
+  handleOperatingRoundComplete: () => void;
 }
 
 const createInitialState = (): Partial<GameState> => ({
@@ -212,6 +215,7 @@ const createInitialState = (): Partial<GameState> => ({
   connectedPlayers: [],
   actionHistory: [],
   turnTimeoutMs: DEFAULT_TURN_TIMEOUT,
+  operatingRoundsCompleted: 0,
 });
 
 export const useGameStore = create<GameStore>()(
@@ -645,14 +649,31 @@ export const useGameStore = create<GameStore>()(
           isPresident: false
         };
         
-        // Update state to give certificate (PRR is NOT started yet)
-        set(() => ({
-          players: state.players.map(p => 
-            p.id === camdenAmboyOwner.id 
-              ? { ...p, certificates: [...p.certificates, certificate] }
-              : p
-          )
-        }));
+        // Update state to give certificate and track ownership properly
+        set((state) => {
+          // Get current player shares for PRR
+          const currentPlayerShares = prr.playerShares.get(camdenAmboyOwner.id) || [];
+          const updatedPlayerShares = [...currentPlayerShares, certificate];
+          
+          return {
+            players: state.players.map(p => 
+              p.id === camdenAmboyOwner.id 
+                ? { ...p, certificates: [...p.certificates, certificate] }
+                : p
+            ),
+            corporations: state.corporations.map(c => 
+              c.id === prr.id 
+                ? {
+                    ...c,
+                    playerShares: new Map([
+                      ...c.playerShares,
+                      [camdenAmboyOwner.id, updatedPlayerShares]
+                    ])
+                  }
+                : c
+            )
+          };
+        });
         
         // Add notification
         get().addNotification({
@@ -1130,6 +1151,35 @@ export const useGameStore = create<GameStore>()(
           type: 'success',
           duration: 5000
         });
+        
+        // Handle B&O private company removal when B&O corporation is floated
+        if (corporation.name === 'Baltimore & Ohio') {
+          // Find the B&O private company owner
+          const boPrivateOwner = state.players.find(player => 
+            player.privateCompanies.some(pc => pc.name === 'Baltimore & Ohio')
+          );
+          
+          if (boPrivateOwner) {
+            // Remove B&O private company from the owner
+            set((state) => ({
+              players: state.players.map(p => 
+                p.id === boPrivateOwner.id 
+                  ? { 
+                      ...p, 
+                      privateCompanies: p.privateCompanies.filter(pc => pc.name !== 'Baltimore & Ohio')
+                    }
+                  : p
+              )
+            }));
+            
+            get().addNotification({
+              title: 'Baltimore & Ohio Private Company Closed',
+              message: `${boPrivateOwner.name}'s Baltimore & Ohio private company is closed as the corporation is now floated`,
+              type: 'info',
+              duration: 5000
+            });
+          }
+        }
       }
 
       return {
@@ -1901,6 +1951,7 @@ export const useGameStore = create<GameStore>()(
       roundType: RoundType.OPERATING,
       currentPlayerIndex: 0, // Reset to first player for operating round
       stockRoundState: undefined, // Clear stock round state
+      operatingRoundsCompleted: 0, // Reset operating rounds counter
       operatingRoundState: {
         operatingOrder,
         currentOperatingIndex: 0,
@@ -1934,12 +1985,63 @@ export const useGameStore = create<GameStore>()(
         duration: 4000
       });
       
-      // Clear operating round state and move to next round
+      // Clear operating round state
       set(() => ({
         operatingRoundState: undefined
       }));
       
-      // TODO: Move to next round (stock round or next operating round based on phase)
+      // Move to next round based on phase
+      get().handleOperatingRoundComplete();
+    }
+  },
+
+  handleOperatingRoundComplete: () => {
+    const state = get();
+    const currentPhaseConfig = getPhaseConfig(state.phase);
+    
+    // Track operating rounds completed since last stock round
+    const operatingRoundsCompleted = (state.operatingRoundsCompleted || 0) + 1;
+    
+    if (operatingRoundsCompleted >= currentPhaseConfig.operatingRoundsBetweenStock) {
+      // Move to stock round
+      set(() => ({
+        roundType: RoundType.STOCK,
+        currentPlayerIndex: 0,
+        operatingRoundsCompleted: 0, // Reset counter
+        stockRoundState: {
+          currentPlayerActions: [],
+          stockRoundActions: [],
+          turnStartTime: Date.now(),
+          consecutivePasses: 0
+        }
+      }));
+      
+      get().addNotification({
+        title: 'Stock Round Starting',
+        message: `Starting stock round after ${operatingRoundsCompleted} operating round(s)`,
+        type: 'info',
+        duration: 4000
+      });
+    } else {
+      // Start next operating round
+      const operatingOrder = calculateOperatingOrder(state.corporations, state.stockMarket);
+      
+      set(() => ({
+        roundType: RoundType.OPERATING,
+        operatingRoundsCompleted,
+        operatingRoundState: {
+          operatingOrder,
+          currentOperatingIndex: 0,
+          operatingCorporationId: operatingOrder.length > 0 ? operatingOrder[0] : undefined
+        }
+      }));
+      
+      get().addNotification({
+        title: 'Next Operating Round',
+        message: `Operating round ${operatingRoundsCompleted + 1} of ${currentPhaseConfig.operatingRoundsBetweenStock}`,
+        type: 'info',
+        duration: 4000
+      });
     }
   },
 

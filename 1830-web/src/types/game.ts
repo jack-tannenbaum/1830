@@ -198,6 +198,7 @@ export interface GameState {
     currentOperatingIndex: number; // index of current corporation operating
     operatingCorporationId?: string; // ID of corporation currently operating
   };
+  operatingRoundsCompleted?: number; // Track operating rounds since last stock round
   pendingBoeffect?: {
     playerId: string;
     corporationId: string;

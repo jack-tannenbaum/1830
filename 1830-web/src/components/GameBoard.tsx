@@ -56,7 +56,8 @@ export const GameBoard: React.FC = () => {
     closeNotification,
     stockMarket,
     setGameState,
-    operatingRoundState
+    operatingRoundState,
+    operatingRoundsCompleted
   } = useGameStore();
 
   const colors = useColors();
@@ -98,20 +99,13 @@ export const GameBoard: React.FC = () => {
                 </span> • {
                   roundType === RoundType.PRIVATE_AUCTION ? 'Private Company Auction' :
                   roundType === RoundType.AUCTION_SUMMARY ? 'Auction Summary' :
-                  roundType === RoundType.STOCK ? 'Stock Round' : 'Operating Round'
+                  roundType === RoundType.STOCK ? 'Stock Round' : 
+                  `Operating Round ${(operatingRoundsCompleted || 0) + 1} of ${getPhaseConfig(phase).operatingRoundsBetweenStock}`
                 }
               </p>
             </div>
             
             <div className="flex items-center space-x-4">
-              {currentPlayer && (
-                <div className="text-right">
-                  <p className={`text-sm ${colors.text.secondary}`}>Current Player</p>
-                  <p className={`text-lg font-semibold ${colors.text.success}`}>{currentPlayer.name}</p>
-                  <p className={`text-sm ${colors.text.tertiary}`}>${currentPlayer.cash}</p>
-                </div>
-              )}
-              
               {/* Debug Buttons */}
               <div className="flex items-center space-x-2">
                 <button
