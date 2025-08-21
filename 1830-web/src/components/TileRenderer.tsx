@@ -56,21 +56,6 @@ const TileRenderer: React.FC<TileRendererProps> = ({
   const getRevenueCenterPositions = () => {
     const centers: { x: number; y: number; type: string }[] = [];
     
-    // Special mapping for green tiles that maintain revenue centers
-    const greenTileRevenueCenters: Record<string, { x: number; y: number; type: string }[]> = {
-      '14': [
-        { x: size / 2, y: size / 2, type: 'city' }
-      ],
-      '15': [
-        { x: size / 2, y: size / 2, type: 'city' }
-      ]
-    };
-    
-    // Check if this is a green tile with predefined revenue centers
-    if (tile.color === 'green' && greenTileRevenueCenters[tile.id]) {
-      return greenTileRevenueCenters[tile.id];
-    }
-    
     switch (tile.requires.type) {
       case 'city':
         centers.push({ x: size / 2, y: size / 2, type: 'city' });

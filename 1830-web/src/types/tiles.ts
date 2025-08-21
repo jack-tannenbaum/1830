@@ -147,7 +147,7 @@ export const ALL_TILES: TileDefinition[] = [
   {
     id: '14',
     color: 'green',
-    requires: { type: 'empty' },
+    requires: { type: 'city' },
     connects: [
       { from: 'A', to: 'C' },
       { from: 'C', to: 'D' },
@@ -159,7 +159,7 @@ export const ALL_TILES: TileDefinition[] = [
   {
     id: '15',
     color: 'green',
-    requires: { type: 'empty' },
+    requires: { type: 'city' },
     connects: [
       { from: 'A', to: 'B' },
       { from: 'B', to: 'C' },
@@ -292,13 +292,147 @@ export const ALL_TILES: TileDefinition[] = [
   {
     id: '53',
     color: 'green',
-    requires: { type: 'empty' },
+    requires: { type: 'city' },
     connects: [
       { from: 'B', to: 'C' },
       { from: 'C', to: 'F' }
     ],
     quantity: 2,
     upgrades: ['61']
+  },
+  
+  // Brown tiles
+  {
+    id: '39',
+    color: 'brown',
+    requires: { type: 'empty' },
+    connects: [
+      { from: 'D', to: 'E' },
+      { from: 'D', to: 'F' }
+    ],
+    quantity: 1,
+    upgrades: ['70']
+  },
+  {
+    id: '40',
+    color: 'brown',
+    requires: { type: 'empty' },
+    connects: [
+      { from: 'B', to: 'D' },
+      { from: 'D', to: 'F' }
+    ],
+    quantity: 1,
+    upgrades: ['70']
+  },
+  {
+    id: '41',
+    color: 'brown',
+    requires: { type: 'empty' },
+    connects: [
+      { from: 'A', to: 'D' },
+      { from: 'D', to: 'E' }
+    ],
+    quantity: 1,
+    upgrades: ['70']
+  },
+  {
+    id: '42',
+    color: 'brown',
+    requires: { type: 'empty' },
+    connects: [
+      { from: 'A', to: 'D' },
+      { from: 'C', to: 'D' }
+    ],
+    quantity: 1,
+    upgrades: ['70']
+  },
+  {
+    id: '43',
+    color: 'brown',
+    requires: { type: 'empty' },
+    connects: [
+      { from: 'A', to: 'D' },
+      { from: 'B', to: 'C' }
+    ],
+    quantity: 1,
+    upgrades: ['70']
+  },
+  {
+    id: '44',
+    color: 'brown',
+    requires: { type: 'empty' },
+    connects: [
+      { from: 'A', to: 'D' },
+      { from: 'C', to: 'F' }
+    ],
+    quantity: 1,
+    upgrades: ['70']
+  },
+  {
+    id: '45',
+    color: 'brown',
+    requires: { type: 'empty' },
+    connects: [
+      { from: 'A', to: 'C' },
+      { from: 'B', to: 'D' }
+    ],
+    quantity: 1,
+    upgrades: ['70']
+  },
+  {
+    id: '46',
+    color: 'brown',
+    requires: { type: 'empty' },
+    connects: [
+      { from: 'A', to: 'C' },
+      { from: 'D', to: 'F' }
+    ],
+    quantity: 1,
+    upgrades: ['70']
+  },
+  {
+    id: '47',
+    color: 'brown',
+    requires: { type: 'empty' },
+    connects: [
+      { from: 'A', to: 'D' },
+      { from: 'D', to: 'F' }
+    ],
+    quantity: 1,
+    upgrades: ['70']
+  },
+  {
+    id: '61',
+    color: 'brown',
+    requires: { type: 'city' },
+    connects: [
+      { from: 'B', to: 'C' },
+      { from: 'C', to: 'F' }
+    ],
+    quantity: 1,
+    upgrades: ['70']
+  },
+  {
+    id: '63',
+    color: 'brown',
+    requires: { type: 'city' },
+    connects: [
+      { from: 'A', to: 'C' },
+      { from: 'C', to: 'D' },
+      { from: 'D', to: 'F' }
+    ],
+    quantity: 1,
+    upgrades: ['70']
+  },
+  {
+    id: '70',
+    color: 'gray',
+    requires: { type: 'empty' },
+    connects: [
+      { from: 'A', to: 'C' },
+      { from: 'B', to: 'D' }
+    ],
+    quantity: 1
   }
 ];
 
