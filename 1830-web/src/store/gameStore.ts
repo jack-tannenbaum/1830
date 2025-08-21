@@ -1856,7 +1856,7 @@ export const useGameStore = create<GameStore>()(
         stockRoundActions: state.stockRoundState?.stockRoundActions || [], // Preserve stock round actions
         turnStartTime: Date.now(),
         pendingStockMovements: [], // Clear pending movements
-        consecutivePasses: (state.stockRoundState?.consecutivePasses || 0) + 1
+        consecutivePasses: state.stockRoundState?.consecutivePasses || 0 // Don't increment here - only increment when player passes
       }
     }));
 
