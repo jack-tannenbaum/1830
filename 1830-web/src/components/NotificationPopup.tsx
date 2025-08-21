@@ -91,7 +91,7 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
               setIsVisible(false);
               setTimeout(() => onClose(), 300);
             }}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className={`transition-colors ${colors.text.tertiary} hover:${colors.text.secondary}`}
           >
             ×
           </button>

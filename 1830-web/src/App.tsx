@@ -4,12 +4,14 @@ import { GameBoard } from './components/GameBoard';
 import MapGraphTest from './components/MapGraphTest';
 import { useGameStore } from './store/gameStore';
 import { useThemeStore } from './store/themeStore';
+import { useColors } from './styles/colors';
 
 function App() {
   const [gameStarted, setGameStarted] = useState(false);
   const [showResumeMenu, setShowResumeMenu] = useState(false);
   const { players, hasActiveGame, newGame } = useGameStore();
   const { theme } = useThemeStore();
+  const colors = useColors();
 
   // Check if we want to show the map test
   const isMapTest = window.location.search.includes('test=map');
@@ -45,26 +47,26 @@ function App() {
   // Show resume/new game menu if there's a saved game
   if (showResumeMenu) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-900 to-green-700 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-2xl p-8 max-w-md w-full">
+      <div className={`min-h-screen flex items-center justify-center p-4 ${colors.layout.background}`}>
+        <div className={`rounded-lg shadow-2xl p-8 max-w-md w-full ${colors.card.background} ${colors.card.border}`}>
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-gray-800 mb-2">1830</h1>
-            <p className="text-gray-600">Game in Progress</p>
+            <h1 className={`text-4xl font-bold mb-2 ${colors.text.primary}`}>1830</h1>
+            <p className={colors.text.secondary}>Game in Progress</p>
           </div>
 
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-gray-700 mb-4">Found saved game with {players.length} players</h2>
+            <h2 className={`text-xl font-semibold mb-4 ${colors.text.primary}`}>Found saved game with {players.length} players</h2>
             
             <button
               onClick={handleResumeGame}
-              className="w-full py-3 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 transition-colors"
+              className={`w-full py-3 font-semibold rounded-md transition-colors ${colors.button.success}`}
             >
               Resume Game
             </button>
             
             <button
               onClick={handleNewGame}
-              className="w-full py-3 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600 transition-colors"
+              className={`w-full py-3 font-semibold rounded-md transition-colors ${colors.button.danger}`}
             >
               Start New Game
             </button>

@@ -107,7 +107,7 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onGameStart }) => {
           {playerNames.length < 6 && (
             <button
               onClick={addPlayer}
-              className={`w-full py-2 border-2 border-dashed rounded-md transition-colors ${colors.card.border} ${colors.text.tertiary} hover:border-green-500 hover:text-green-500`}
+              className={`w-full py-2 border-2 border-dashed rounded-md transition-colors ${colors.card.border} ${colors.text.tertiary} hover:border-green-500 hover:text-green-600`}
             >
               + Add Player
             </button>

@@ -231,7 +231,7 @@ const StockRound: React.FC = () => {
             disabled={!stockRoundState?.currentPlayerActions || stockRoundState.currentPlayerActions.length === 0}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
               stockRoundState?.currentPlayerActions && stockRoundState.currentPlayerActions.length > 0
-                ? `${colors.button.secondary} hover:bg-red-600 hover:text-white`
+                ? `${colors.button.secondary} hover:${colors.button.danger.split(' ')[1]} hover:text-white`
                 : colors.button.disabled
             }`}
             title={stockRoundState?.currentPlayerActions && stockRoundState.currentPlayerActions.length > 0 
@@ -253,8 +253,8 @@ const StockRound: React.FC = () => {
             onClick={() => setShowStockMarket(!showStockMarket)}
             className={`px-4 py-2 rounded-lg transition-colors duration-300 font-medium ${
               showStockMarket 
-                ? 'bg-green-600 hover:bg-green-700 text-white' 
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                ? colors.button.success
+                : colors.button.primary
             }`}
             title={showStockMarket ? "Switch to Corporations View" : "Switch to Stock Market View"}
           >
@@ -417,7 +417,7 @@ const StockRound: React.FC = () => {
                       action.type === 'sell_certificate' && action.data?.corporationId === corporation.id
                     ) || corporation.ipoShares.length === 0
                       ? colors.button.disabled
-                      : 'bg-green-600 hover:bg-green-700 text-white'
+                      : colors.button.success
                   }`}
                   title={
                     stockRoundState?.currentPlayerActions.some(action => 
@@ -446,7 +446,7 @@ const StockRound: React.FC = () => {
                       action.type === 'sell_certificate' && action.data?.corporationId === corporation.id
                     ) || corporation.bankShares.length === 0
                       ? colors.button.disabled
-                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                      : colors.button.primary
                   }`}
                   title={
                     stockRoundState?.currentPlayerActions.some(action => 

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useColors } from '../styles/colors';
 
 interface PurchasePopupProps {
   companyName: string;
@@ -16,6 +17,7 @@ export const PurchasePopup: React.FC<PurchasePopupProps> = ({
   index
 }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const colors = useColors();
 
   useEffect(() => {
     // Slide in
@@ -46,13 +48,13 @@ export const PurchasePopup: React.FC<PurchasePopupProps> = ({
         position: 'fixed' // Explicitly set position
       }}
     >
-      <div className="bg-white rounded-lg shadow-lg border-l-4 border-green-500 p-4">
+      <div className={`rounded-lg shadow-lg border-l-4 p-4 ${colors.card.background} ${colors.notification.purchase.border}`}>
         <div className="flex items-center justify-between">
           <div>
-            <div className="font-semibold text-gray-800 text-lg">
+            <div className={`font-semibold text-lg ${colors.notification.purchase.title}`}>
               {companyName}
             </div>
-            <div className="text-gray-600 text-sm">
+            <div className={`text-sm ${colors.notification.purchase.text}`}>
               Purchased by {playerName} for ${price}
             </div>
           </div>
@@ -61,7 +63,7 @@ export const PurchasePopup: React.FC<PurchasePopupProps> = ({
               setIsVisible(false);
               setTimeout(() => onClose(), 300);
             }}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className={`transition-colors ${colors.text.tertiary} hover:${colors.text.secondary}`}
           >
             ×
           </button>

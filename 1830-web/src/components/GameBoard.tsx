@@ -117,8 +117,8 @@ export const GameBoard: React.FC = () => {
                   onClick={() => setGameState({ roundType: RoundType.STOCK })}
                   className={`px-3 py-2 rounded-lg transition-colors duration-300 ${
                     roundType === RoundType.STOCK 
-                      ? 'bg-green-600 hover:bg-green-700 text-white' 
-                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                      ? colors.button.success
+                      : colors.button.primary
                   }`}
                   title="Start Stock Round (Debug)"
                 >
@@ -129,8 +129,8 @@ export const GameBoard: React.FC = () => {
                   onClick={() => setGameState({ roundType: RoundType.OPERATING })}
                   className={`px-3 py-2 rounded-lg transition-colors duration-300 ${
                     roundType === RoundType.OPERATING 
-                      ? 'bg-green-600 hover:bg-green-700 text-white' 
-                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                      ? colors.button.success
+                      : colors.button.primary
                   }`}
                   title="Start Operating Round (Debug)"
                 >
@@ -141,8 +141,8 @@ export const GameBoard: React.FC = () => {
                   onClick={() => setGameState({ roundType: RoundType.PRIVATE_AUCTION })}
                   className={`px-3 py-2 rounded-lg transition-colors duration-300 ${
                     roundType === RoundType.PRIVATE_AUCTION 
-                      ? 'bg-green-600 hover:bg-green-700 text-white' 
-                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                      ? colors.button.success
+                      : colors.button.primary
                   }`}
                   title="Start Private Auction (Debug)"
                 >
@@ -154,8 +154,8 @@ export const GameBoard: React.FC = () => {
                 onClick={toggleTheme}
                 className={`p-2 rounded-lg transition-colors duration-300 ${
                   theme === 'dark' 
-                    ? 'bg-yellow-500 hover:bg-yellow-600 text-gray-900' 
-                    : 'bg-gray-800 hover:bg-gray-700 text-white'
+                    ? colors.button.warning
+                    : colors.button.secondary
                 }`}
                 title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
               >
@@ -504,7 +504,7 @@ export const GameBoard: React.FC = () => {
                                     </div>
                                     {/* Operating order number - top right of corporation circle */}
                                     <div 
-                                      className="absolute w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold"
+                                      className={`absolute w-4 h-4 text-white text-xs rounded-full flex items-center justify-center font-bold ${colors.button.danger}`}
                                       style={{ top: '-8px', right: '-8px' }}
                                     >
                                       {operatingIndex + 1}

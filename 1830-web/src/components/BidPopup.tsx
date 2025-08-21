@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useColors } from '../styles/colors';
 
 interface BidPopupProps {
   companyName: string;
@@ -16,6 +17,7 @@ export const BidPopup: React.FC<BidPopupProps> = ({
   index
 }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const colors = useColors();
 
   useEffect(() => {
     // Slide in
@@ -46,13 +48,13 @@ export const BidPopup: React.FC<BidPopupProps> = ({
         position: 'fixed' // Explicitly set position
       }}
     >
-      <div className="bg-white rounded-lg shadow-lg border-l-4 border-blue-500 p-4">
+      <div className={`rounded-lg shadow-lg border-l-4 p-4 ${colors.card.background} ${colors.notification.bid.border}`}>
         <div className="flex items-center justify-between">
           <div>
-            <div className="font-semibold text-gray-800 text-lg">
+            <div className={`font-semibold text-lg ${colors.notification.bid.title}`}>
               {companyName}
             </div>
-            <div className="text-gray-600 text-sm">
+            <div className={`text-sm ${colors.notification.bid.text}`}>
               {playerName} bid ${amount}
             </div>
           </div>
@@ -61,7 +63,7 @@ export const BidPopup: React.FC<BidPopupProps> = ({
               setIsVisible(false);
               setTimeout(() => onClose(), 300);
             }}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className={`transition-colors ${colors.text.tertiary} hover:${colors.text.secondary}`}
           >
             ×
           </button>
