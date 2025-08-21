@@ -58,6 +58,19 @@ const TileRenderer: React.FC<TileRendererProps> = ({
     
     switch (tile.requires.type) {
       case 'city':
+        if (tile.color === 'yellow') {
+          // Yellow city tiles have 1 station
+          centers.push({ x: size / 2, y: size / 2, type: 'city' });
+        } else {
+          // Green and brown city tiles have 2 stations
+          centers.push(
+            { x: size / 2 - 6, y: size / 2, type: 'city' },
+            { x: size / 2 + 6, y: size / 2, type: 'city' }
+          );
+        }
+        break;
+      case 'B':
+        // B tiles have a city in the center
         centers.push({ x: size / 2, y: size / 2, type: 'city' });
         break;
       case '1 town':
@@ -120,6 +133,33 @@ const TileRenderer: React.FC<TileRendererProps> = ({
       return paths;
     }
     
+    if (tile.id === '63') {
+      // Tile 63: All sides connect to city center (hub)
+      const center = { x: size / 2, y: size / 2 };
+      const sides = ['A', 'B', 'C', 'D', 'E', 'F'];
+      
+      sides.forEach(side => {
+        const sidePos = getSidePosition(side);
+        paths.push(`M ${sidePos.x} ${sidePos.y} L ${center.x} ${center.y}`);
+      });
+      
+      return paths;
+    }
+    
+    if (tile.id === '61') {
+      // Tile 61: A, B, D, F connect to city center with straight lines
+      const center = { x: size / 2, y: size / 2 };
+      const sides = ['A', 'B', 'D', 'F'];
+      
+      sides.forEach(side => {
+        const sidePos = getSidePosition(side);
+        paths.push(`M ${sidePos.x} ${sidePos.y} L ${center.x} ${center.y}`);
+      });
+      
+      return paths;
+    }
+    
+    // Handle regular connection pairs
     tile.connects.forEach((connection, index) => {
       const fromPos = getSidePosition(connection.from);
       const toPos = getSidePosition(connection.to);
@@ -181,7 +221,12 @@ const TileRenderer: React.FC<TileRendererProps> = ({
         {/* Hex background */}
         <polygon
           points={hexPoints}
-          fill={tile.color === 'yellow' ? '#fef3c7' : tile.color === 'green' ? '#dcfce7' : '#ffffff'}
+          fill={
+            tile.color === 'yellow' ? '#fef3c7' : 
+            tile.color === 'green' ? '#dcfce7' : 
+            tile.color === 'brown' ? '#d97706' : 
+            '#ffffff'
+          }
           stroke="#666"
           strokeWidth="1"
         />
@@ -225,6 +270,21 @@ const TileRenderer: React.FC<TileRendererProps> = ({
           borderRadius: '2px'
         }}>
           {tile.id}
+        </div>
+      )}
+      
+      {/* Special labels for B and NYC tiles */}
+      {(tile.id === 'B' || tile.id === 'NYC' || tile.id === '54' || tile.id === '62' || tile.id === '61') && (
+        <div style={{
+          position: 'absolute',
+          top: '25%',
+          left: '25%',
+          fontSize: '8px',
+          fontWeight: 'bold',
+          color: '#333',
+          zIndex: 10
+        }}>
+          {tile.id === '54' || tile.id === '62' ? 'NYC' : tile.id === '61' ? 'B' : tile.id}
         </div>
       )}
     </div>

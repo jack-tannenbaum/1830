@@ -129,8 +129,28 @@ const HexGridTest: React.FC = () => {
                 
                 {/* Green Tiles */}
                 <h4 style={{ margin: '10px 0 8px 0', fontSize: '14px', color: '#166534' }}>Green Tiles</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '15px' }}>
                   {getPlayableTilesByColor('green').map((tile) => {
+                    const isEligible = hoveredHex ? canPlaceTile(tile, hoveredFeature) : false;
+                    return (
+                      <div key={tile.id} style={{ textAlign: 'center' }}>
+                        <TileRenderer 
+                          tile={tile} 
+                          size={50} 
+                          highlight={isEligible}
+                        />
+                        <div style={{ fontSize: '10px', marginTop: '2px' }}>
+                          Qty: {tile.quantity}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                {/* Brown Tiles */}
+                <h4 style={{ margin: '10px 0 8px 0', fontSize: '14px', color: '#92400e' }}>Brown Tiles</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                  {getPlayableTilesByColor('brown').map((tile) => {
                     const isEligible = hoveredHex ? canPlaceTile(tile, hoveredFeature) : false;
                     return (
                       <div key={tile.id} style={{ textAlign: 'center' }}>

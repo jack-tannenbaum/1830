@@ -22,7 +22,7 @@ export interface TileDefinition {
   upgrades?: string[]; // IDs of tiles this can upgrade to
 }
 
-// All tiles from 1830 (yellow and green)
+// All tiles from 1830 (yellow, green, brown, gray)
 export const ALL_TILES: TileDefinition[] = [
   // B tiles - Special starting tiles with B-D connections through cities
   {
@@ -33,7 +33,7 @@ export const ALL_TILES: TileDefinition[] = [
       { from: 'B', to: 'D' }
     ],
     quantity: 2, // 2 B tiles per board
-    upgrades: ['14', '15'] // Can upgrade to green city tiles
+    upgrades: ['53'] 
   },
   
   // 2-City tiles - Special hexes with two cities, no track initially
@@ -43,7 +43,7 @@ export const ALL_TILES: TileDefinition[] = [
     requires: { type: '2-city' },
     connects: [], // No track initially
     quantity: 3, // 3 per board
-    upgrades: ['14', '15'] // Can upgrade to green city tiles
+    upgrades: ['59'] 
   },
   
   // NYC tiles - Special starting tiles with two cities and A-D track connections
@@ -55,7 +55,7 @@ export const ALL_TILES: TileDefinition[] = [
       { from: 'A', to: 'D' }
     ],
     quantity: 1, // 1 NYC tile per board
-    upgrades: ['14', '15'] // Can upgrade to green city tiles
+    upgrades: ['62'] 
   },
   
   // Yellow tiles
@@ -130,7 +130,7 @@ export const ALL_TILES: TileDefinition[] = [
   {
     id: '55',
     color: 'yellow',
-    requires: { type: '2 towns' },
+    requires: { type: '2 town' },
     connects: [
       { from: 'A', to: 'D' },
       { from: 'C', to: 'F' }
@@ -140,7 +140,7 @@ export const ALL_TILES: TileDefinition[] = [
   {
     id: '56',
     color: 'yellow',
-    requires: { type: '2 towns' },
+    requires: { type: '2 town' },
     connects: [
       { from: 'A', to: 'C' },
       { from: 'B', to: 'D' }
@@ -169,7 +169,7 @@ export const ALL_TILES: TileDefinition[] = [
   {
     id: '69',
     color: 'yellow',
-    requires: { type: '2 towns' },
+    requires: { type: '2 town' },
     connects: [
       { from: 'A', to: 'D' },
       { from: 'B', to: 'F' }
@@ -326,13 +326,34 @@ export const ALL_TILES: TileDefinition[] = [
   {
     id: '53',
     color: 'green',
-    requires: { type: 'city' },
+    requires: { type: 'B' },
     connects: [
       { from: 'B', to: 'C' },
       { from: 'C', to: 'F' }
     ],
     quantity: 2,
     upgrades: ['61']
+  },
+  {
+    id: '54',
+    color: 'green',
+    requires: { type: 'NYC' },
+    connects: [
+      { from: 'A', to: 'F' },
+      { from: 'B', to: 'C' }
+    ],
+    quantity: 1,
+    upgrades: ['62']
+  },
+  {
+    id: '59',
+    color: 'green',
+    requires: { type: '2-city' },
+    connects: [
+      { from: 'C', to: 'E' }
+    ],
+    quantity: 2,
+    upgrades: ['64', '65', '66', '67', '68']
   },
   
   // Brown tiles
@@ -341,11 +362,11 @@ export const ALL_TILES: TileDefinition[] = [
     color: 'brown',
     requires: { type: 'empty' },
     connects: [
-      { from: 'D', to: 'E' },
-      { from: 'D', to: 'F' }
+      { from: 'C', to: 'D' },
+      { from: 'C', to: 'E' },
+      { from: 'D', to: 'E' }
     ],
-    quantity: 1,
-    upgrades: ['70']
+    quantity: 1
   },
   {
     id: '40',
@@ -353,10 +374,10 @@ export const ALL_TILES: TileDefinition[] = [
     requires: { type: 'empty' },
     connects: [
       { from: 'B', to: 'D' },
+      { from: 'B', to: 'F' },
       { from: 'D', to: 'F' }
     ],
-    quantity: 1,
-    upgrades: ['70']
+    quantity: 1
   },
   {
     id: '41',
@@ -364,10 +385,10 @@ export const ALL_TILES: TileDefinition[] = [
     requires: { type: 'empty' },
     connects: [
       { from: 'A', to: 'D' },
-      { from: 'D', to: 'E' }
+      { from: 'A', to: 'B' },
+      { from: 'B', to: 'D' }
     ],
-    quantity: 1,
-    upgrades: ['70']
+    quantity: 2
   },
   {
     id: '42',
@@ -375,10 +396,10 @@ export const ALL_TILES: TileDefinition[] = [
     requires: { type: 'empty' },
     connects: [
       { from: 'A', to: 'D' },
-      { from: 'C', to: 'D' }
+      { from: 'A', to: 'F' },
+      { from: 'D', to: 'F' }
     ],
-    quantity: 1,
-    upgrades: ['70']
+    quantity: 2
   },
   {
     id: '43',
@@ -386,10 +407,10 @@ export const ALL_TILES: TileDefinition[] = [
     requires: { type: 'empty' },
     connects: [
       { from: 'A', to: 'D' },
-      { from: 'B', to: 'C' }
+      { from: 'A', to: 'C' },
+      { from: 'B', to: 'D' }
     ],
-    quantity: 1,
-    upgrades: ['70']
+    quantity: 2
   },
   {
     id: '44',
@@ -397,32 +418,35 @@ export const ALL_TILES: TileDefinition[] = [
     requires: { type: 'empty' },
     connects: [
       { from: 'A', to: 'D' },
-      { from: 'C', to: 'F' }
+      { from: 'C', to: 'F' },
+      { from: 'A', to: 'F' },
+      { from: 'C', to: 'D' }
     ],
-    quantity: 1,
-    upgrades: ['70']
+    quantity: 1
   },
   {
     id: '45',
     color: 'brown',
     requires: { type: 'empty' },
     connects: [
-      { from: 'A', to: 'C' },
-      { from: 'B', to: 'D' }
+      { from: 'A', to: 'D' },
+      { from: 'D', to: 'C' },
+      { from: 'C', to: 'E' },
+      { from: 'E', to: 'A' }
     ],
-    quantity: 1,
-    upgrades: ['70']
+    quantity: 1
   },
   {
     id: '46',
     color: 'brown',
     requires: { type: 'empty' },
     connects: [
-      { from: 'A', to: 'C' },
-      { from: 'D', to: 'F' }
+      { from: 'B', to: 'D' },
+      { from: 'B', to: 'E' },
+      { from: 'D', to: 'F' },
+      { from: 'E', to: 'F' }
     ],
-    quantity: 1,
-    upgrades: ['70']
+    quantity: 2
   },
   {
     id: '47',
@@ -430,41 +454,105 @@ export const ALL_TILES: TileDefinition[] = [
     requires: { type: 'empty' },
     connects: [
       { from: 'A', to: 'D' },
+      { from: 'A', to: 'C' },
+      { from: 'C', to: 'F' },
       { from: 'D', to: 'F' }
     ],
-    quantity: 1,
-    upgrades: ['70']
+    quantity: 1
   },
   {
     id: '61',
     color: 'brown',
-    requires: { type: 'city' },
+    requires: { type: 'B' },
     connects: [
-      { from: 'B', to: 'C' },
-      { from: 'C', to: 'F' }
+      { from: 'A', to: 'B' },
+      { from: 'B', to: 'D' },
+      { from: 'D', to: 'F' }
     ],
-    quantity: 1,
-    upgrades: ['70']
+    quantity: 2
+  },
+  {
+    id: '62',
+    color: 'brown',
+    requires: { type: 'NYC' },
+    connects: [
+      { from: 'A', to: 'B' },
+      { from: 'C', to: 'D' }
+    ],
+    quantity: 1
   },
   {
     id: '63',
     color: 'brown',
     requires: { type: 'city' },
     connects: [
-      { from: 'A', to: 'C' },
+      { from: 'A', to: 'B' },
+      { from: 'B', to: 'C' },
       { from: 'C', to: 'D' },
+      { from: 'D', to: 'E' },
+      { from: 'E', to: 'F' }
+    ],
+    quantity: 3
+  },
+  {
+    id: '64',
+    color: 'brown',
+    requires: { type: '2-city' },
+    connects: [
+      { from: 'A', to: 'B' },
       { from: 'D', to: 'F' }
     ],
-    quantity: 1,
-    upgrades: ['70']
+    quantity: 1
+  },
+  {
+    id: '65',
+    color: 'brown',
+    requires: { type: '2-city' },
+    connects: [
+      { from: 'B', to: 'C' },
+      { from: 'D', to: 'F' }
+    ],
+    quantity: 1
+  },
+  {
+    id: '66',
+    color: 'brown',
+    requires: { type: '2-city' },
+    connects: [
+      { from: 'A', to: 'B' },
+      { from: 'C', to: 'F' }
+    ],
+    quantity: 1
+  },
+  {
+    id: '67',
+    color: 'brown',
+    requires: { type: '2-city' },
+    connects: [
+      { from: 'A', to: 'E' },
+      { from: 'C', to: 'F' }
+    ],
+    quantity: 1
+  },
+  {
+    id: '68',
+    color: 'brown',
+    requires: { type: '2-city' },
+    connects: [
+      { from: 'A', to: 'D' },
+      { from: 'B', to: 'E' }
+    ],
+    quantity: 1
   },
   {
     id: '70',
-    color: 'gray',
+    color: 'brown',
     requires: { type: 'empty' },
     connects: [
+      { from: 'A', to: 'B' },
       { from: 'A', to: 'C' },
-      { from: 'B', to: 'D' }
+      { from: 'B', to: 'D' },
+      { from: 'C', to: 'D' }
     ],
     quantity: 1
   }
@@ -498,9 +586,9 @@ export function getTilesByColor(color: 'yellow' | 'green'): TileDefinition[] {
   return ALL_TILES.filter(tile => tile.color === color);
 }
 
-// Helper function to get playable tiles (excluding B tiles)
-export function getPlayableTilesByColor(color: 'yellow' | 'green'): TileDefinition[] {
-  return ALL_TILES.filter(tile => tile.color === color && tile.id !== 'B');
+// Helper function to get playable tiles (excluding special map tiles B, NYC, and 2C)
+export function getPlayableTilesByColor(color: 'yellow' | 'green' | 'brown'): TileDefinition[] {
+  return ALL_TILES.filter(tile => tile.color === color && tile.id !== 'B' && tile.id !== 'NYC' && tile.id !== '2C');
 }
 
 // Helper function to get upgrade options for a tile
