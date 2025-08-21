@@ -10,7 +10,7 @@ export interface MultiWayConnection {
 }
 
 export interface TileRequirement {
-  type: 'empty' | '1 town' | '2 town' | '2 towns' | 'city';
+  type: 'empty' | '1 town' | '2 town' | '2 towns' | 'city' | 'B' | '2-city' | 'NYC';
 }
 
 export interface TileDefinition {
@@ -24,6 +24,40 @@ export interface TileDefinition {
 
 // All tiles from 1830 (yellow and green)
 export const ALL_TILES: TileDefinition[] = [
+  // B tiles - Special starting tiles with B-D connections through cities
+  {
+    id: 'B',
+    color: 'yellow',
+    requires: { type: 'B' },
+    connects: [
+      { from: 'B', to: 'D' }
+    ],
+    quantity: 2, // 2 B tiles per board
+    upgrades: ['14', '15'] // Can upgrade to green city tiles
+  },
+  
+  // 2-City tiles - Special hexes with two cities, no track initially
+  {
+    id: '2C',
+    color: 'yellow',
+    requires: { type: '2-city' },
+    connects: [], // No track initially
+    quantity: 3, // 3 per board
+    upgrades: ['14', '15'] // Can upgrade to green city tiles
+  },
+  
+  // NYC tiles - Special starting tiles with two cities and A-D track connections
+  {
+    id: 'NYC',
+    color: 'yellow',
+    requires: { type: 'NYC' },
+    connects: [
+      { from: 'A', to: 'D' }
+    ],
+    quantity: 1, // 1 NYC tile per board
+    upgrades: ['14', '15'] // Can upgrade to green city tiles
+  },
+  
   // Yellow tiles
   {
     id: '1',
@@ -437,7 +471,7 @@ export const ALL_TILES: TileDefinition[] = [
 ];
 
 // Helper function to check if a tile can be placed on a hex
-export function canPlaceTile(tile: TileDefinition, hexFeature: 'city' | 'town' | 'two-towns' | undefined): boolean {
+export function canPlaceTile(tile: TileDefinition, hexFeature: 'city' | 'town' | 'two-towns' | 'B' | '2-city' | 'NYC' | undefined): boolean {
   switch (tile.requires.type) {
     case 'empty':
       return hexFeature === undefined;
@@ -448,6 +482,12 @@ export function canPlaceTile(tile: TileDefinition, hexFeature: 'city' | 'town' |
       return hexFeature === 'two-towns';
     case 'city':
       return hexFeature === 'city';
+    case 'B':
+      return hexFeature === 'B';
+    case '2-city':
+      return hexFeature === '2-city';
+    case 'NYC':
+      return hexFeature === 'NYC';
     default:
       return false;
   }
@@ -456,6 +496,11 @@ export function canPlaceTile(tile: TileDefinition, hexFeature: 'city' | 'town' |
 // Helper function to get tiles by color
 export function getTilesByColor(color: 'yellow' | 'green'): TileDefinition[] {
   return ALL_TILES.filter(tile => tile.color === color);
+}
+
+// Helper function to get playable tiles (excluding B tiles)
+export function getPlayableTilesByColor(color: 'yellow' | 'green'): TileDefinition[] {
+  return ALL_TILES.filter(tile => tile.color === color && tile.id !== 'B');
 }
 
 // Helper function to get upgrade options for a tile

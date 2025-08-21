@@ -3,14 +3,14 @@ import HexGrid from './HexGrid';
 import { HexCoordinate } from '../types/mapGraph';
 import { hexToString } from '../utils/hexCoordinates';
 import TileRenderer from './TileRenderer';
-import { ALL_TILES, getTilesByColor, canPlaceTile } from '../types/tiles';
+import { ALL_TILES, getPlayableTilesByColor, canPlaceTile } from '../types/tiles';
 
 const HexGridTest: React.FC = () => {
   const [selectedHex, setSelectedHex] = useState<HexCoordinate | null>(null);
   const [showCoordinates, setShowCoordinates] = useState(true);
   const [mapSeed, setMapSeed] = useState(0);
   const [hoveredHex, setHoveredHex] = useState<HexCoordinate | null>(null);
-  const [hexFeatures, setHexFeatures] = useState<Map<string, 'city' | 'town' | 'two-towns'>>(new Map());
+  const [hexFeatures, setHexFeatures] = useState<Map<string, 'city' | 'town' | 'two-towns' | 'B' | '2-city' | 'NYC'>>(new Map());
 
   const handleHexClick = (hex: HexCoordinate) => {
     setSelectedHex(hex);
@@ -20,7 +20,7 @@ const HexGridTest: React.FC = () => {
     setHoveredHex(hex);
   };
 
-  const handleHexFeaturesChange = (features: Map<string, 'city' | 'town' | 'two-towns'>) => {
+  const handleHexFeaturesChange = (features: Map<string, 'city' | 'town' | 'two-towns' | 'B' | '2-city' | 'NYC'>) => {
     setHexFeatures(features);
   };
 
@@ -110,7 +110,7 @@ const HexGridTest: React.FC = () => {
                 {/* Yellow Tiles */}
                 <h4 style={{ margin: '10px 0 8px 0', fontSize: '14px', color: '#92400e' }}>Yellow Tiles</h4>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '15px' }}>
-                  {getTilesByColor('yellow').map((tile) => {
+                  {getPlayableTilesByColor('yellow').map((tile) => {
                     const isEligible = hoveredHex ? canPlaceTile(tile, hoveredFeature) : false;
                     return (
                       <div key={tile.id} style={{ textAlign: 'center' }}>
@@ -130,7 +130,7 @@ const HexGridTest: React.FC = () => {
                 {/* Green Tiles */}
                 <h4 style={{ margin: '10px 0 8px 0', fontSize: '14px', color: '#166534' }}>Green Tiles</h4>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                  {getTilesByColor('green').map((tile) => {
+                  {getPlayableTilesByColor('green').map((tile) => {
                     const isEligible = hoveredHex ? canPlaceTile(tile, hoveredFeature) : false;
                     return (
                       <div key={tile.id} style={{ textAlign: 'center' }}>
@@ -158,7 +158,8 @@ const HexGridTest: React.FC = () => {
           <li>Click on any hex to select it and see its coordinates</li>
           <li>Yellow hex is the center (0,0,0)</li>
           <li>Toggle coordinates to see/hide hex coordinates</li>
-          <li>Click "Regenerate Map" to create a new random distribution of cities and towns</li>
+          <li>Click "Regenerate Map" to create a new random distribution of cities, towns, and B tiles</li>
+          <li>B tiles (yellow hexes with B labels) are special starting tiles with B-C track connections</li>
         </ul>
       </div>
     </div>
