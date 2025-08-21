@@ -1,9 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { GameState, Player, GameAction, AuctionState, PrivateCompanyState, OwnedPrivateCompany, AuctionSummary, Corporation, Certificate, Point, StockAction, StockMarket } from '../types/game';
+import type { GameState, Player, GameAction, AuctionState, PrivateCompanyState, OwnedPrivateCompany, AuctionSummary, Corporation, Certificate, Point, StockAction, StockMarket, TurnInfo, ConnectedPlayer } from '../types/game';
 import { RoundType, ActionType, GamePhase } from '../types/game';
 import { GAME_CONSTANTS, PRIVATE_COMPANIES, CORPORATIONS, STOCK_MARKET_GRID } from '../types/constants';
 import { getPhaseConfig } from '../types/phaseConfigs';
+import { createTurn, validateAction, createGameAction, recordAction, endTurn, getAvailableActions, DEFAULT_TURN_TIMEOUT } from '../utils/turnManager';
 
 // Helper functions for stock market
 const findParValuePosition = (parValue: number): Point | null => {
@@ -172,6 +173,14 @@ interface GameStore extends GameState {
   // Phase management
   advancePhase: () => void;
   getCurrentPhaseConfig: () => ReturnType<typeof getPhaseConfig>;
+  
+  // Turn-based multiplayer management (local for now)
+  startTurn: (playerId: string, roundType: RoundType) => void;
+  endCurrentTurn: () => void;
+  validateAndDispatchAction: (action: GameAction) => { isValid: boolean; error?: string };
+  isPlayerTurn: (playerId: string) => boolean;
+  getCurrentTurnInfo: () => TurnInfo | undefined;
+  getAvailableActions: () => ActionType[];
 }
 
 const createInitialState = (): Partial<GameState> => ({
@@ -196,7 +205,13 @@ const createInitialState = (): Partial<GameState> => ({
   },
   trainSupply: new Map(),
   notifications: [],
-  history: []
+  history: [],
+  
+  // Turn-based multiplayer infrastructure (local for now)
+  currentTurn: undefined,
+  connectedPlayers: [],
+  actionHistory: [],
+  turnTimeoutMs: DEFAULT_TURN_TIMEOUT,
 });
 
 export const useGameStore = create<GameStore>()(
@@ -290,12 +305,27 @@ export const useGameStore = create<GameStore>()(
     // Initialize corporations with IPO shares
     const corporations: Corporation[] = CORPORATIONS.map(createCorporationFromTemplate);
 
-    return {
+    const gameState = {
       ...initialState,
       players,
       corporations, // This should override the empty array from initialState
       auctionState,
       id: crypto.randomUUID()
+    };
+
+    // Start the first turn for the first player
+    const firstPlayerId = players[0].id;
+    const firstTurn = createTurn(firstPlayerId, RoundType.PRIVATE_AUCTION, getAvailableActions(RoundType.PRIVATE_AUCTION), 45000);
+    
+    return {
+      ...gameState,
+      currentTurn: firstTurn,
+      connectedPlayers: players.map(p => ({
+        playerId: p.id,
+        isOnline: true,
+        lastSeen: Date.now(),
+        displayName: p.name
+      }))
     };
   }),
 
@@ -2222,6 +2252,62 @@ export const useGameStore = create<GameStore>()(
   getCurrentPhaseConfig: () => {
     const state = get();
     return getPhaseConfig(state.phase);
+  },
+
+  // Turn-based multiplayer management (local for now)
+  startTurn: (playerId: string, roundType: RoundType) => {
+    const state = get();
+    const availableActions = getAvailableActions(roundType);
+    const timeoutMs = roundType === RoundType.PRIVATE_AUCTION ? 45000 : 
+                     roundType === RoundType.STOCK ? 30000 : 60000;
+    
+    const newTurn = createTurn(playerId, roundType, availableActions, timeoutMs);
+    
+    set((state) => ({
+      currentTurn: newTurn
+    }));
+  },
+
+  endCurrentTurn: () => {
+    set((state) => ({
+      currentTurn: state.currentTurn ? {
+        ...state.currentTurn,
+        isActive: false,
+      } : undefined
+    }));
+  },
+
+  validateAndDispatchAction: (action: GameAction) => {
+    const state = get();
+    const validation = validateAction(action, state.currentTurn, state.roundType);
+    
+    if (!validation.isValid) {
+      return validation;
+    }
+    
+    // Record the action
+    const updatedState = recordAction(state, action);
+    set(updatedState);
+    
+    // End the current turn
+    get().endCurrentTurn();
+    
+    return { isValid: true };
+  },
+
+  isPlayerTurn: (playerId: string) => {
+    const state = get();
+    return state.currentTurn?.playerId === playerId && state.currentTurn?.isActive === true;
+  },
+
+  getCurrentTurnInfo: () => {
+    const state = get();
+    return state.currentTurn;
+  },
+
+  getAvailableActions: () => {
+    const state = get();
+    return getAvailableActions(state.roundType);
   }
     }),
     {

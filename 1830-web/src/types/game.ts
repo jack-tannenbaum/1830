@@ -179,6 +179,13 @@ export interface GameState {
   }[];
   currentAction?: GameAction;
   history: GameAction[];
+  
+  // Turn-based multiplayer infrastructure (local for now)
+  currentTurn?: TurnInfo;
+  connectedPlayers: ConnectedPlayer[];
+  actionHistory: GameAction[]; // For replay/sync
+  turnTimeoutMs: number; // Default turn timeout
+  
   stockRoundState?: {
     currentPlayerActions: StockAction[];
     stockRoundActions: StockAction[]; // Track all actions in the current stock round
@@ -264,14 +271,6 @@ export interface StockAction {
   };
 }
 
-export interface GameAction {
-  id: string;
-  type: string;
-  playerId: string;
-  timestamp: number;
-  data: Record<string, unknown>;
-}
-
 export enum ActionType {
   // Private auction actions
   BUY_CHEAPEST_PRIVATE = 'buy_cheapest_private',
@@ -294,4 +293,31 @@ export enum ActionType {
   RUN_TRAINS = 'run_trains',
   BUY_TRAIN = 'buy_train',
   DECLARE_DIVIDEND = 'declare_dividend'
+}
+
+// Turn-based multiplayer types
+export interface TurnInfo {
+  playerId: string;
+  turnType: 'private_auction' | 'stock' | 'operating';
+  startTime: number;
+  timeoutMs: number;
+  availableActions: ActionType[];
+  isActive: boolean;
+}
+
+export interface ConnectedPlayer {
+  playerId: string;
+  isOnline: boolean;
+  lastSeen: number;
+  displayName: string;
+}
+
+export interface GameAction {
+  id: string;
+  type: ActionType;
+  playerId: string;
+  timestamp: number;
+  data: Record<string, unknown>;
+  clientId?: string; // For future WebSocket implementation
+  sequenceNumber?: number; // For future conflict resolution
 }

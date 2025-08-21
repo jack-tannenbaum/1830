@@ -4,6 +4,7 @@ import { RoundType, GamePhase } from '../types/game';
 import { PrivateAuction } from './PrivateAuction';
 import { AuctionSummary } from './AuctionSummary';
 import { NotificationPopup } from './NotificationPopup';
+import { TurnDisplay } from './TurnDisplay';
 import { useColors } from '../styles/colors';
 import { useThemeStore } from '../store/themeStore';
 import StockRound from './StockRound';
@@ -563,6 +564,9 @@ export const GameBoard: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      {/* Turn Display */}
+      <TurnDisplay />
       
       {/* Notifications Stack */}
       {notifications
