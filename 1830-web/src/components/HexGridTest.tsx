@@ -3,7 +3,7 @@ import HexGrid from './HexGrid';
 import { HexCoordinate } from '../types/mapGraph';
 import { hexToString } from '../utils/hexCoordinates';
 import TileRenderer from './TileRenderer';
-import { YELLOW_TILES, canPlaceTile } from '../types/tiles';
+import { ALL_TILES, getTilesByColor, canPlaceTile } from '../types/tiles';
 
 const HexGridTest: React.FC = () => {
   const [selectedHex, setSelectedHex] = useState<HexCoordinate | null>(null);
@@ -99,29 +99,53 @@ const HexGridTest: React.FC = () => {
           overflow: 'auto',
           backgroundColor: '#f8f9fa'
         }}>
-          <h3 style={{ margin: '0 0 15px 0', fontSize: '16px' }}>Yellow Tiles</h3>
+          <h3 style={{ margin: '0 0 15px 0', fontSize: '16px' }}>Tile Library</h3>
           
           {/* Get the feature of the hovered hex to determine eligible tiles */}
           {(() => {
             const hoveredFeature = hoveredHex ? hexFeatures.get(hexToString(hoveredHex)) : undefined;
             
             return (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                {YELLOW_TILES.map((tile) => {
-                  const isEligible = hoveredHex ? canPlaceTile(tile, hoveredFeature) : false;
-                  return (
-                    <div key={tile.id} style={{ textAlign: 'center' }}>
-                      <TileRenderer 
-                        tile={tile} 
-                        size={50} 
-                        highlight={isEligible}
-                      />
-                      <div style={{ fontSize: '10px', marginTop: '2px' }}>
-                        Qty: {tile.quantity}
+              <div>
+                {/* Yellow Tiles */}
+                <h4 style={{ margin: '10px 0 8px 0', fontSize: '14px', color: '#92400e' }}>Yellow Tiles</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '15px' }}>
+                  {getTilesByColor('yellow').map((tile) => {
+                    const isEligible = hoveredHex ? canPlaceTile(tile, hoveredFeature) : false;
+                    return (
+                      <div key={tile.id} style={{ textAlign: 'center' }}>
+                        <TileRenderer 
+                          tile={tile} 
+                          size={50} 
+                          highlight={isEligible}
+                        />
+                        <div style={{ fontSize: '10px', marginTop: '2px' }}>
+                          Qty: {tile.quantity}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+                
+                {/* Green Tiles */}
+                <h4 style={{ margin: '10px 0 8px 0', fontSize: '14px', color: '#166534' }}>Green Tiles</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                  {getTilesByColor('green').map((tile) => {
+                    const isEligible = hoveredHex ? canPlaceTile(tile, hoveredFeature) : false;
+                    return (
+                      <div key={tile.id} style={{ textAlign: 'center' }}>
+                        <TileRenderer 
+                          tile={tile} 
+                          size={50} 
+                          highlight={isEligible}
+                        />
+                        <div style={{ fontSize: '10px', marginTop: '2px' }}>
+                          Qty: {tile.quantity}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             );
           })()}

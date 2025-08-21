@@ -56,6 +56,21 @@ const TileRenderer: React.FC<TileRendererProps> = ({
   const getRevenueCenterPositions = () => {
     const centers: { x: number; y: number; type: string }[] = [];
     
+    // Special mapping for green tiles that maintain revenue centers
+    const greenTileRevenueCenters: Record<string, { x: number; y: number; type: string }[]> = {
+      '14': [
+        { x: size / 2, y: size / 2, type: 'city' }
+      ],
+      '15': [
+        { x: size / 2, y: size / 2, type: 'city' }
+      ]
+    };
+    
+    // Check if this is a green tile with predefined revenue centers
+    if (tile.color === 'green' && greenTileRevenueCenters[tile.id]) {
+      return greenTileRevenueCenters[tile.id];
+    }
+    
     switch (tile.requires.type) {
       case 'city':
         centers.push({ x: size / 2, y: size / 2, type: 'city' });
@@ -88,6 +103,37 @@ const TileRenderer: React.FC<TileRendererProps> = ({
       };
       return sideMap[side1] === side2;
     };
+    
+    // Special handling for specific tiles
+    if (tile.id === '14') {
+      // Tile 14: X pattern centered at the circle
+      const center = { x: size / 2, y: size / 2 };
+      const aPos = getSidePosition('A');
+      const cPos = getSidePosition('C');
+      const dPos = getSidePosition('D');
+      const fPos = getSidePosition('F');
+      
+      // A-C line through center
+      paths.push(`M ${aPos.x} ${aPos.y} L ${center.x} ${center.y} L ${cPos.x} ${cPos.y}`);
+      // D-F line through center
+      paths.push(`M ${dPos.x} ${dPos.y} L ${center.x} ${center.y} L ${fPos.x} ${fPos.y}`);
+      return paths;
+    }
+    
+    if (tile.id === '15') {
+      // Tile 15: K pattern centered at the circle
+      const center = { x: size / 2, y: size / 2 };
+      const aPos = getSidePosition('A');
+      const bPos = getSidePosition('B');
+      const cPos = getSidePosition('C');
+      const dPos = getSidePosition('D');
+      
+      // A-D line through center
+      paths.push(`M ${aPos.x} ${aPos.y} L ${center.x} ${center.y} L ${dPos.x} ${dPos.y}`);
+      // B-C line through center
+      paths.push(`M ${bPos.x} ${bPos.y} L ${center.x} ${center.y} L ${cPos.x} ${cPos.y}`);
+      return paths;
+    }
     
     tile.connects.forEach((connection, index) => {
       const fromPos = getSidePosition(connection.from);
@@ -150,7 +196,7 @@ const TileRenderer: React.FC<TileRendererProps> = ({
         {/* Hex background */}
         <polygon
           points={hexPoints}
-          fill={tile.color === 'yellow' ? '#fef3c7' : '#ffffff'}
+          fill={tile.color === 'yellow' ? '#fef3c7' : tile.color === 'green' ? '#dcfce7' : '#ffffff'}
           stroke="#666"
           strokeWidth="1"
         />
