@@ -134,9 +134,15 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onGameStart }) => {
               </p>
               <button
                 onClick={() => window.location.href = '?test=map'}
-                className="w-full py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-md transition-colors text-sm"
+                className="w-full py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-md transition-colors text-sm mb-2"
               >
                 🧪 Test Map System
+              </button>
+              <button
+                onClick={() => window.location.href = '?test=hexgrid'}
+                className="w-full py-2 bg-purple-500 hover:bg-purple-600 text-white font-medium rounded-md transition-colors text-sm"
+              >
+                🧪 Test Hex Grid
               </button>
             </div>
           </div>

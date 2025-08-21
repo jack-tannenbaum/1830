@@ -2,9 +2,12 @@ import { useState, useEffect } from 'react';
 import { GameSetup } from './components/GameSetup';
 import { GameBoard } from './components/GameBoard';
 import MapGraphTest from './components/MapGraphTest';
+import HexGridTest from './components/HexGridTest';
 import { useGameStore } from './store/gameStore';
 import { useThemeStore } from './store/themeStore';
 import { useColors } from './styles/colors';
+// Import to ensure Tailwind includes these classes
+import './tailwind-safelist.css';
 
 function App() {
   const [gameStarted, setGameStarted] = useState(false);
@@ -15,6 +18,7 @@ function App() {
 
   // Check if we want to show the map test
   const isMapTest = window.location.search.includes('test=map');
+  const isHexGridTest = window.location.search.includes('test=hexgrid');
 
   useEffect(() => {
     // Check if there's an active game when the app loads
@@ -79,6 +83,11 @@ function App() {
   // Show map test if requested
   if (isMapTest) {
     return <MapGraphTest />;
+  }
+
+  // Show hex grid test if requested
+  if (isHexGridTest) {
+    return <HexGridTest />;
   }
 
   // Show game board if game has started and has players
