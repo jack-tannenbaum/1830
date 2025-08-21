@@ -2,14 +2,26 @@ import React, { useState } from 'react';
 import HexGrid from './HexGrid';
 import { HexCoordinate } from '../types/mapGraph';
 import { hexToString } from '../utils/hexCoordinates';
+import TileRenderer from './TileRenderer';
+import { YELLOW_TILES, canPlaceTile } from '../types/tiles';
 
 const HexGridTest: React.FC = () => {
   const [selectedHex, setSelectedHex] = useState<HexCoordinate | null>(null);
   const [showCoordinates, setShowCoordinates] = useState(true);
   const [mapSeed, setMapSeed] = useState(0);
+  const [hoveredHex, setHoveredHex] = useState<HexCoordinate | null>(null);
+  const [hexFeatures, setHexFeatures] = useState<Map<string, 'city' | 'town' | 'two-towns'>>(new Map());
 
   const handleHexClick = (hex: HexCoordinate) => {
     setSelectedHex(hex);
+  };
+
+  const handleHexHover = (hex: HexCoordinate | null) => {
+    setHoveredHex(hex);
+  };
+
+  const handleHexFeaturesChange = (features: Map<string, 'city' | 'town' | 'two-towns'>) => {
+    setHexFeatures(features);
   };
 
   const regenerateMap = () => {
@@ -55,22 +67,65 @@ const HexGridTest: React.FC = () => {
         )}
       </div>
 
-      <div style={{ 
-        width: '800px', 
-        height: '600px', 
-        border: '2px solid #333',
-        borderRadius: '8px',
-        overflow: 'hidden'
-      }}>
-        <HexGrid
-          centerHex={{ q: 0, r: 0, s: 0 }}
-          radius={4}
-          hexSize={35}
-          showCoordinates={showCoordinates}
-          onHexClick={handleHexClick}
-          highlightedHexes={[]}
-          seed={mapSeed}
-        />
+      <div style={{ display: 'flex', gap: '20px' }}>
+        {/* Hex Grid */}
+        <div style={{ 
+          width: '600px', 
+          height: '600px', 
+          border: '2px solid #333',
+          borderRadius: '8px',
+          overflow: 'hidden'
+        }}>
+          <HexGrid
+            centerHex={{ q: 0, r: 0, s: 0 }}
+            radius={4}
+            hexSize={35}
+            showCoordinates={showCoordinates}
+            onHexClick={handleHexClick}
+            onHexHover={handleHexHover}
+            onHexFeaturesChange={handleHexFeaturesChange}
+            highlightedHexes={[]}
+            seed={mapSeed}
+          />
+        </div>
+
+        {/* Tile Library */}
+        <div style={{ 
+          width: '300px', 
+          height: '600px', 
+          border: '2px solid #333',
+          borderRadius: '8px',
+          padding: '10px',
+          overflow: 'auto',
+          backgroundColor: '#f8f9fa'
+        }}>
+          <h3 style={{ margin: '0 0 15px 0', fontSize: '16px' }}>Yellow Tiles</h3>
+          
+          {/* Get the feature of the hovered hex to determine eligible tiles */}
+          {(() => {
+            const hoveredFeature = hoveredHex ? hexFeatures.get(hexToString(hoveredHex)) : undefined;
+            
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                {YELLOW_TILES.map((tile) => {
+                  const isEligible = hoveredHex ? canPlaceTile(tile, hoveredFeature) : false;
+                  return (
+                    <div key={tile.id} style={{ textAlign: 'center' }}>
+                      <TileRenderer 
+                        tile={tile} 
+                        size={50} 
+                        highlight={isEligible}
+                      />
+                      <div style={{ fontSize: '10px', marginTop: '2px' }}>
+                        Qty: {tile.quantity}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
       </div>
 
       <div style={{ marginTop: '20px' }}>

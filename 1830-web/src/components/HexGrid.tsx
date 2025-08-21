@@ -8,6 +8,8 @@ interface HexGridProps {
   hexSize?: number;
   showCoordinates?: boolean;
   onHexClick?: (hex: HexCoordinate) => void;
+  onHexHover?: (hex: HexCoordinate | null) => void;
+  onHexFeaturesChange?: (features: Map<string, 'city' | 'town' | 'two-towns'>) => void;
   highlightedHexes?: HexCoordinate[];
   children?: React.ReactNode;
   seed?: number; // Add seed prop to control regeneration
@@ -19,6 +21,8 @@ const HexGrid: React.FC<HexGridProps> = ({
   hexSize = 8,
   showCoordinates = false,
   onHexClick,
+  onHexHover,
+  onHexFeaturesChange,
   highlightedHexes = [],
   children,
   seed = 0
@@ -58,6 +62,11 @@ const HexGrid: React.FC<HexGridProps> = ({
     
     return features;
   }, [hexes, seed]);
+
+  // Notify parent of hex features changes
+  React.useEffect(() => {
+    onHexFeaturesChange?.(hexFeatures);
+  }, [hexFeatures, onHexFeaturesChange]);
 
   // Convert hex coordinate to pixel position
   const hexToPixel = (hex: HexCoordinate) => {
@@ -148,9 +157,11 @@ const HexGrid: React.FC<HexGridProps> = ({
                     hoverColor = '#f5f5f5';
                   }
                   e.currentTarget.style.fill = hoverColor;
+                  onHexHover?.(hex);
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.fill = fillColor;
+                  onHexHover?.(null);
                 }}
               />
               
