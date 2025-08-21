@@ -7,11 +7,11 @@ import { validateRoute, TRAIN_TYPES } from './routeValidation';
 export function createTestGraph(): GameMapGraph {
   return {
     revenueCenters: {
-      't10': { id: 't10', coordinate: { x: 0, y: 0 }, type: 'town', revenue: 10, stationTokens: [] },
-      't15': { id: 't15', coordinate: { x: 2, y: 0 }, type: 'town', revenue: 15, stationTokens: [] },
-      't20': { id: 't20', coordinate: { x: 0, y: 2 }, type: 'town', revenue: 20, stationTokens: [] },
-      't25': { id: 't25', coordinate: { x: 2, y: 2 }, type: 'town', revenue: 25, stationTokens: [] },
-      'c50': { id: 'c50', coordinate: { x: 1, y: 1 }, type: 'city', revenue: 50, stationTokens: [] }
+      't10': { id: 't10', name: 'Town 10', coordinate: { x: 0, y: 0 }, type: 'town', revenue: 10, stationTokens: [] },
+      't15': { id: 't15', name: 'Town 15', coordinate: { x: 2, y: 0 }, type: 'town', revenue: 15, stationTokens: [] },
+      't20': { id: 't20', name: 'Town 20', coordinate: { x: 0, y: 2 }, type: 'town', revenue: 20, stationTokens: [] },
+      't25': { id: 't25', name: 'Town 25', coordinate: { x: 2, y: 2 }, type: 'town', revenue: 25, stationTokens: [] },
+      'c50': { id: 'c50', name: 'City 50', coordinate: { x: 1, y: 1 }, type: 'city', revenue: 50, stationTokens: [] }
     },
     connections: [],
     trackTiles: {},

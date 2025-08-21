@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { GameSetup } from './components/GameSetup';
 import { GameBoard } from './components/GameBoard';
+import MapGraphTest from './components/MapGraphTest';
 import { useGameStore } from './store/gameStore';
 import { useThemeStore } from './store/themeStore';
 
@@ -9,6 +10,9 @@ function App() {
   const [showResumeMenu, setShowResumeMenu] = useState(false);
   const { players, hasActiveGame, newGame } = useGameStore();
   const { theme } = useThemeStore();
+
+  // Check if we want to show the map test
+  const isMapTest = window.location.search.includes('test=map');
 
   useEffect(() => {
     // Check if there's an active game when the app loads
@@ -68,6 +72,11 @@ function App() {
         </div>
       </div>
     );
+  }
+
+  // Show map test if requested
+  if (isMapTest) {
+    return <MapGraphTest />;
   }
 
   // Show game board if game has started and has players

@@ -190,6 +190,9 @@ export function calculateRouteRevenue(graph: GameMapGraph, path: string[]): numb
 
 // === Main Route Validation Function ===
 
+// Train types for validation
+export const TRAIN_TYPES = ['2-train', '3-train', '4-train', '5-train', '6-train', 'diesel'] as const;
+
 export function validateRoute(
   graph: GameMapGraph,
   path: string[],

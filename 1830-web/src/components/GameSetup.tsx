@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
+import { useColors } from '../styles/colors';
 
 interface GameSetupProps {
   onGameStart: () => void;
@@ -8,6 +9,7 @@ interface GameSetupProps {
 export const GameSetup: React.FC<GameSetupProps> = ({ onGameStart }) => {
   const [playerNames, setPlayerNames] = useState<string[]>(['', '', '', '']);
   const { initializeGame } = useGameStore();
+  const colors = useColors();
 
   const defaultNames = ['Player 1', 'Player 2', 'Player 3', 'Player 4', 'Player 5', 'Player 6'];
 
@@ -56,20 +58,20 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onGameStart }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-900 to-green-700 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-2xl p-8 max-w-md w-full">
+    <div className={`min-h-screen flex items-center justify-center p-4 ${colors.layout.background}`}>
+      <div className={`rounded-lg shadow-2xl p-8 max-w-md w-full ${colors.card.background} ${colors.card.border}`}>
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">1830</h1>
-          <p className="text-gray-600">Railways & Robber Barons</p>
+          <h1 className={`text-4xl font-bold mb-2 ${colors.text.primary}`}>1830</h1>
+          <p className={colors.text.secondary}>Railways & Robber Barons</p>
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-gray-700 mb-4">Player Setup</h2>
+          <h2 className={`text-xl font-semibold mb-4 ${colors.text.primary}`}>Player Setup</h2>
           
           <div className="flex gap-2 mb-4">
             <button
               onClick={fillDefaultNames}
-              className="flex-1 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors text-sm"
+              className={`flex-1 py-2 rounded-md transition-colors text-sm ${colors.button.primary}`}
             >
               Fill Default Names
             </button>
@@ -82,11 +84,11 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onGameStart }) => {
                 placeholder={`Player ${index + 1} Name`}
                 value={name}
                 onChange={(e) => handlePlayerNameChange(index, e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${colors.card.border} focus:ring-green-500 focus:border-green-500`}
               />
               <button
                 onClick={() => handlePlayerNameChange(index, defaultNames[index])}
-                className="px-3 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors text-sm"
+                className={`px-3 py-2 rounded-md transition-colors text-sm ${colors.button.secondary}`}
                 title={`Fill ${defaultNames[index]}`}
               >
                 {defaultNames[index].split(' ')[1]}
@@ -94,7 +96,7 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onGameStart }) => {
               {playerNames.length > 3 && (
                 <button
                   onClick={() => removePlayer(index)}
-                  className="px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                  className={`px-3 py-2 rounded-md transition-colors ${colors.button.danger}`}
                 >
                   ✕
                 </button>
@@ -105,24 +107,36 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onGameStart }) => {
           {playerNames.length < 6 && (
             <button
               onClick={addPlayer}
-              className="w-full py-2 border-2 border-dashed border-gray-300 text-gray-500 rounded-md hover:border-green-500 hover:text-green-500 transition-colors"
+              className={`w-full py-2 border-2 border-dashed rounded-md transition-colors ${colors.card.border} ${colors.text.tertiary} hover:border-green-500 hover:text-green-500`}
             >
               + Add Player
             </button>
           )}
 
           <div className="pt-4">
-            <p className="text-sm text-gray-500 mb-4">
+            <p className={`text-sm mb-4 ${colors.text.tertiary}`}>
               3-6 players required. Each player starts with $600.
             </p>
             
             <button
               onClick={handleStartGame}
               disabled={!isValidSetup()}
-              className="w-full py-3 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              className={`w-full py-3 font-semibold rounded-md transition-colors ${isValidSetup() ? colors.button.success : colors.button.disabled}`}
             >
               Start Game
             </button>
+            
+            <div className={`mt-4 pt-4 border-t ${colors.card.border}`}>
+              <p className={`text-sm mb-3 text-center ${colors.text.tertiary}`}>
+                Developer Tools
+              </p>
+              <button
+                onClick={() => window.location.href = '?test=map'}
+                className={`w-full py-2 font-medium rounded-md transition-colors text-sm ${colors.button.warning}`}
+              >
+                🧪 Test Map System
+              </button>
+            </div>
           </div>
         </div>
       </div>

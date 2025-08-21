@@ -1,4 +1,4 @@
-import type { TrackTile, TrackTileType, TrackTileColor, GridCoordinate, GameMapGraph, TrackConnection } from '../types/mapGraph';
+import type { TrackTile, GridCoordinate, GameMapGraph, TrackConnection } from '../types/mapGraph';
 
 // === Track Tile Definitions ===
 
