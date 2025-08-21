@@ -14,8 +14,8 @@ const MapGraphTest: React.FC = () => {
 
   return (
     <div style={{ padding: '20px', fontFamily: 'monospace' }}>
-      <h2>🧪 Map Graph Test Suite</h2>
-      <p>Click the buttons below to run map graph tests in the console.</p>
+      <h2>🧪 Hexagonal Map Graph Test Suite</h2>
+      <p>Click the buttons below to run hexagonal map graph tests in the console.</p>
       
       <div style={{ marginBottom: '20px' }}>
         <button 
@@ -48,16 +48,22 @@ const MapGraphTest: React.FC = () => {
         </button>
       </div>
 
-      <h3>Test Layout (3x3 Grid)</h3>
+      <h3>Test Layout (Hexagonal Grid)</h3>
       <pre style={{ backgroundColor: '#f5f5f5', padding: '10px', borderRadius: '4px' }}>
-{`[0,0] [1,0] [2,0]  - T10  E   T15
-[0,1] [1,1] [2,1]  - E   C50 E  
-[0,2] [1,2] [2,2]  - T20 E   T25
+{`    [0,-1,1] [1,-1,0] [2,-2,0]
+[-1,1,0] [0,0,0] [1,-1,0] [2,-2,0]
+    [-1,0,1] [0,1,-1] [1,0,-1]
 
 Legend:
-- T10, T15, T20, T25: Towns with revenue values
-- C50: City with $50 revenue  
-- E: Empty squares (no revenue centers)`}
+- (0,0,0): Center hex - Town 10 ($10)
+- (1,-1,0): East - Town 15 ($15)  
+- (2,-2,0): Far East - Town 20 ($20)
+- (0,1,-1): South - City 50 ($50)
+- (-1,1,0): West - City 75 ($75)
+- (1,0,-1): Southeast - Town 30 ($30)
+
+Hexagonal coordinates: (q,r,s) where q + r + s = 0
+Directions: Right, Down-right, Down-left, Left, Up-left, Up-right`}
       </pre>
 
       <h3>What the tests validate:</h3>
@@ -82,10 +88,12 @@ Legend:
 
       <h3>Key Concepts:</h3>
       <ul>
-        <li><strong>Track Tiles</strong>: Placed on hexes to create track infrastructure</li>
-        <li><strong>Track Connections</strong>: Created automatically when track tiles are placed</li>
+        <li><strong>Hexagonal Grid</strong>: Uses cube coordinates (q,r,s) where q + r + s = 0</li>
+        <li><strong>Track Tiles</strong>: Placed on hexes to create track infrastructure with 6-direction connectivity</li>
+        <li><strong>Track Connections</strong>: Created automatically when track tiles are placed between revenue centers</li>
         <li><strong>Routes</strong>: Run along existing track connections between revenue centers</li>
         <li><strong>Station Tokens</strong>: Allow corporations to start routes from specific revenue centers</li>
+        <li><strong>Hexagonal Movement</strong>: Equal distance to all 6 neighbors, natural for train tracks</li>
       </ul>
     </div>
   );

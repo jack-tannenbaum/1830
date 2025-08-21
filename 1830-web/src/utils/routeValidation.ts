@@ -1,4 +1,5 @@
 import type { GameMapGraph, RouteValidation } from '../types/mapGraph';
+import { hexToString } from './hexCoordinates';
 
 // === Route Validation Functions ===
 
@@ -88,7 +89,7 @@ export function validateNoBacktracking(
     
     if (connection) {
       // Create a unique identifier for this track segment
-      const segmentId = connection.hexesTraversed.map(coord => `${coord.x},${coord.y}`).sort().join('|');
+      const segmentId = connection.hexesTraversed.map(coord => hexToString(coord)).sort().join('|');
       
       if (usedTrackSegments.has(segmentId)) {
         errors.push(`Track segment between ${from} and ${to} used twice in the same route`);
@@ -143,7 +144,7 @@ export function validateUniqueTrackUsage(
     );
     
     if (connection) {
-      const segmentId = connection.hexesTraversed.map(coord => `${coord.x},${coord.y}`).sort().join('|');
+      const segmentId = connection.hexesTraversed.map(coord => hexToString(coord)).sort().join('|');
       currentRouteSegments.add(segmentId);
     }
   }
@@ -160,7 +161,7 @@ export function validateUniqueTrackUsage(
       );
       
       if (connection) {
-        const segmentId = connection.hexesTraversed.map(coord => `${coord.x},${coord.y}`).sort().join('|');
+        const segmentId = connection.hexesTraversed.map(coord => hexToString(coord)).sort().join('|');
         
         if (currentRouteSegments.has(segmentId)) {
           errors.push(`Track segment between ${from} and ${to} already used by another train`);

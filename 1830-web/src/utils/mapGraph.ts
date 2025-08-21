@@ -1,14 +1,14 @@
-import type { GameMapGraph, RevenueCenter, RouteValidation, TrackConnection, GridCoordinate } from '../types/mapGraph';
+import type { GameMapGraph, RevenueCenter, RouteValidation, TrackConnection, HexCoordinate } from '../types/mapGraph';
+import { hexToString, stringToHex, getNeighbors, hexDistance, offsetToCube } from './hexCoordinates';
 
 // === Utility Functions ===
 
-export function coordinateToString(coord: GridCoordinate): string {
-  return `${coord.x},${coord.y}`;
+export function coordinateToString(coord: HexCoordinate): string {
+  return hexToString(coord);
 }
 
-export function stringToCoordinate(str: string): GridCoordinate {
-  const [x, y] = str.split(',').map(Number);
-  return { x, y };
+export function stringToCoordinate(str: string): HexCoordinate {
+  return stringToHex(str);
 }
 
 export function getRevenueCenterById(
@@ -92,12 +92,12 @@ export function findRoutes(
 // === Test Layout Creation ===
 
 export function createTestLayout(): GameMapGraph {
-  // Create a 3x3 grid for testing
+  // Create a hexagonal layout for testing
   const revenueCenters: Record<string, RevenueCenter> = {
     't10': {
       id: 't10',
       name: 'Town 10',
-      coordinate: { x: 0, y: 0 },
+      coordinate: { q: 0, r: 0, s: 0 },
       revenue: 10,
       type: 'town',
       stationTokens: []
@@ -105,7 +105,7 @@ export function createTestLayout(): GameMapGraph {
     't15': {
       id: 't15', 
       name: 'Town 15',
-      coordinate: { x: 1, y: 0 },
+      coordinate: { q: 1, r: -1, s: 0 },
       revenue: 15,
       type: 'town',
       stationTokens: []
@@ -113,7 +113,7 @@ export function createTestLayout(): GameMapGraph {
     't20': {
       id: 't20',
       name: 'Town 20', 
-      coordinate: { x: 2, y: 0 },
+      coordinate: { q: 2, r: -2, s: 0 },
       revenue: 20,
       type: 'town',
       stationTokens: []
@@ -121,7 +121,7 @@ export function createTestLayout(): GameMapGraph {
     'c50': {
       id: 'c50',
       name: 'City 50',
-      coordinate: { x: 0, y: 1 },
+      coordinate: { q: 0, r: 1, s: -1 },
       revenue: 50,
       type: 'city',
       stationTokens: []
@@ -133,64 +133,220 @@ export function createTestLayout(): GameMapGraph {
     {
       from: 't10',
       to: 't15',
-      hexesTraversed: [{ x: 0, y: 0 }, { x: 1, y: 0 }],
-      trackTiles: ['yellow-straight-0,0', 'yellow-straight-1,0'],
+      hexesTraversed: [{ q: 0, r: 0, s: 0 }, { q: 1, r: -1, s: 0 }],
+      trackTiles: ['yellow-straight-0,0,0', 'yellow-straight-1,-1,0'],
       isActive: true
     },
     {
       from: 't15', 
       to: 't20',
-      hexesTraversed: [{ x: 1, y: 0 }, { x: 2, y: 0 }],
-      trackTiles: ['yellow-straight-1,0', 'yellow-straight-2,0'],
+      hexesTraversed: [{ q: 1, r: -1, s: 0 }, { q: 2, r: -2, s: 0 }],
+      trackTiles: ['yellow-straight-1,-1,0', 'yellow-straight-2,-2,0'],
       isActive: true
     },
     {
       from: 't10',
       to: 'c50',
-      hexesTraversed: [{ x: 0, y: 0 }, { x: 0, y: 1 }],
-      trackTiles: ['yellow-straight-0,0', 'yellow-straight-0,1'],
+      hexesTraversed: [{ q: 0, r: 0, s: 0 }, { q: 0, r: 1, s: -1 }],
+      trackTiles: ['yellow-straight-0,0,0', 'yellow-straight-0,1,-1'],
       isActive: true
     }
   ];
 
   // Create initial track tiles
   const trackTiles: Record<string, any> = {
-    '0,0': {
-      id: 'yellow-straight-0,0',
+    '0,0,0': {
+      id: 'yellow-straight-0,0,0',
       type: 'straight',
       color: 'yellow',
-      exits: [{ x: -1, y: 0 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: 0, y: 1 }],
+      exits: [
+        { q: 1, r: -1, s: 0 },   // right
+        { q: 1, r: 0, s: -1 },   // down-right
+        { q: 0, r: 1, s: -1 },   // down-left
+        { q: -1, r: 1, s: 0 },   // left
+        { q: -1, r: 0, s: 1 },   // up-left
+        { q: 0, r: -1, s: 1 }    // up-right
+      ],
       cost: 0,
       isPlaced: true
     },
-    '1,0': {
-      id: 'yellow-straight-1,0',
+    '1,-1,0': {
+      id: 'yellow-straight-1,-1,0',
       type: 'straight', 
       color: 'yellow',
-      exits: [{ x: -1, y: 0 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: 0, y: 1 }],
+      exits: [
+        { q: 1, r: -1, s: 0 },   // right
+        { q: 1, r: 0, s: -1 },   // down-right
+        { q: 0, r: 1, s: -1 },   // down-left
+        { q: -1, r: 1, s: 0 },   // left
+        { q: -1, r: 0, s: 1 },   // up-left
+        { q: 0, r: -1, s: 1 }    // up-right
+      ],
       cost: 0,
       isPlaced: true
     },
-    '2,0': {
-      id: 'yellow-straight-2,0',
+    '2,-2,0': {
+      id: 'yellow-straight-2,-2,0',
       type: 'straight',
       color: 'yellow', 
-      exits: [{ x: -1, y: 0 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: 0, y: 1 }],
+      exits: [
+        { q: 1, r: -1, s: 0 },   // right
+        { q: 1, r: 0, s: -1 },   // down-right
+        { q: 0, r: 1, s: -1 },   // down-left
+        { q: -1, r: 1, s: 0 },   // left
+        { q: -1, r: 0, s: 1 },   // up-left
+        { q: 0, r: -1, s: 1 }    // up-right
+      ],
       cost: 0,
       isPlaced: true
     },
-    '0,1': {
-      id: 'yellow-straight-0,1',
+    '0,1,-1': {
+      id: 'yellow-straight-0,1,-1',
       type: 'straight',
       color: 'yellow',
-      exits: [{ x: -1, y: 0 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: 0, y: 1 }],
+      exits: [
+        { q: 1, r: -1, s: 0 },   // right
+        { q: 1, r: 0, s: -1 },   // down-right
+        { q: 0, r: 1, s: -1 },   // down-left
+        { q: -1, r: 1, s: 0 },   // left
+        { q: -1, r: 0, s: 1 },   // up-left
+        { q: 0, r: -1, s: 1 }    // up-right
+      ],
       cost: 0,
       isPlaced: true
     }
   };
 
   return {
-    gridSize: { width: 3, height: 3 },
+    gridSize: { width: 5, height: 5 },
+    revenueCenters,
+    trackTiles,
+    connections
+  };
+}
+
+// === Enhanced Test Layout ===
+
+export function createEnhancedTestLayout(): GameMapGraph {
+  // Create a more complex hexagonal layout
+  const revenueCenters: Record<string, RevenueCenter> = {
+    't10': {
+      id: 't10',
+      name: 'Town 10',
+      coordinate: { q: 0, r: 0, s: 0 },
+      revenue: 10,
+      type: 'town',
+      stationTokens: []
+    },
+    't15': {
+      id: 't15', 
+      name: 'Town 15',
+      coordinate: { q: 1, r: -1, s: 0 },
+      revenue: 15,
+      type: 'town',
+      stationTokens: []
+    },
+    't20': {
+      id: 't20',
+      name: 'Town 20', 
+      coordinate: { q: 2, r: -2, s: 0 },
+      revenue: 20,
+      type: 'town',
+      stationTokens: []
+    },
+    'c50': {
+      id: 'c50',
+      name: 'City 50',
+      coordinate: { q: 0, r: 1, s: -1 },
+      revenue: 50,
+      type: 'city',
+      stationTokens: []
+    },
+    'c75': {
+      id: 'c75',
+      name: 'City 75',
+      coordinate: { q: -1, r: 1, s: 0 },
+      revenue: 75,
+      type: 'city',
+      stationTokens: []
+    },
+    't30': {
+      id: 't30',
+      name: 'Town 30',
+      coordinate: { q: 1, r: 0, s: -1 },
+      revenue: 30,
+      type: 'town',
+      stationTokens: []
+    }
+  };
+
+  // Create more complex track connections
+  const connections: TrackConnection[] = [
+    {
+      from: 't10',
+      to: 't15',
+      hexesTraversed: [{ q: 0, r: 0, s: 0 }, { q: 1, r: -1, s: 0 }],
+      trackTiles: ['yellow-straight-0,0,0', 'yellow-straight-1,-1,0'],
+      isActive: true
+    },
+    {
+      from: 't15', 
+      to: 't20',
+      hexesTraversed: [{ q: 1, r: -1, s: 0 }, { q: 2, r: -2, s: 0 }],
+      trackTiles: ['yellow-straight-1,-1,0', 'yellow-straight-2,-2,0'],
+      isActive: true
+    },
+    {
+      from: 't10',
+      to: 'c50',
+      hexesTraversed: [{ q: 0, r: 0, s: 0 }, { q: 0, r: 1, s: -1 }],
+      trackTiles: ['yellow-straight-0,0,0', 'yellow-straight-0,1,-1'],
+      isActive: true
+    },
+    {
+      from: 't10',
+      to: 'c75',
+      hexesTraversed: [{ q: 0, r: 0, s: 0 }, { q: -1, r: 1, s: 0 }],
+      trackTiles: ['yellow-straight-0,0,0', 'yellow-straight--1,1,0'],
+      isActive: true
+    },
+    {
+      from: 't15',
+      to: 't30',
+      hexesTraversed: [{ q: 1, r: -1, s: 0 }, { q: 1, r: 0, s: -1 }],
+      trackTiles: ['yellow-straight-1,-1,0', 'yellow-straight-1,0,-1'],
+      isActive: true
+    }
+  ];
+
+  // Create track tiles for all hexes
+  const trackTiles: Record<string, any> = {};
+  
+  // Helper to create a standard track tile
+  const createTrackTile = (coord: HexCoordinate, id: string) => ({
+    id,
+    type: 'straight' as const,
+    color: 'yellow' as const,
+    exits: [
+      { q: 1, r: -1, s: 0 },   // right
+      { q: 1, r: 0, s: -1 },   // down-right
+      { q: 0, r: 1, s: -1 },   // down-left
+      { q: -1, r: 1, s: 0 },   // left
+      { q: -1, r: 0, s: 1 },   // up-left
+      { q: 0, r: -1, s: 1 }    // up-right
+    ],
+    cost: 0,
+    isPlaced: true
+  });
+
+  // Create tiles for all revenue center locations
+  Object.values(revenueCenters).forEach(center => {
+    const coordStr = hexToString(center.coordinate);
+    trackTiles[coordStr] = createTrackTile(center.coordinate, `yellow-straight-${coordStr}`);
+  });
+
+  return {
+    gridSize: { width: 7, height: 7 },
     revenueCenters,
     trackTiles,
     connections

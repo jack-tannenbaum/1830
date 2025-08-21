@@ -1,5 +1,12 @@
 // === Core Map Graph Types ===
 
+export interface HexCoordinate {
+  q: number; // cube coordinate q
+  r: number; // cube coordinate r  
+  s: number; // cube coordinate s (q + r + s = 0)
+}
+
+// Legacy interface for backward compatibility during migration
 export interface GridCoordinate {
   x: number;
   y: number;
@@ -8,7 +15,7 @@ export interface GridCoordinate {
 export interface RevenueCenter {
   id: string;
   name: string;
-  coordinate: GridCoordinate;
+  coordinate: HexCoordinate;
   revenue: number;
   type: 'city' | 'town';
   stationTokens: string[]; // corporation IDs that have stations here
@@ -18,7 +25,7 @@ export interface TrackTile {
   id: string;
   type: 'straight' | 'curve' | 'cross' | 'diagonal';
   color: 'yellow' | 'green' | 'brown' | 'gray';
-  exits: GridCoordinate[]; // relative coordinates of track exits
+  exits: HexCoordinate[]; // relative hex coordinates of track exits
   cost: number;
   isPlaced: boolean;
 }
@@ -26,7 +33,7 @@ export interface TrackTile {
 export interface TrackConnection {
   from: string; // revenue center ID
   to: string; // revenue center ID
-  hexesTraversed: GridCoordinate[]; // hexes this track passes through
+  hexesTraversed: HexCoordinate[]; // hexes this track passes through
   trackTiles: string[]; // track tile IDs used in this connection
   isActive: boolean;
 }
@@ -37,7 +44,7 @@ export interface GameMapGraph {
     height: number;
   };
   revenueCenters: Record<string, RevenueCenter>;
-  trackTiles: Record<string, TrackTile>; // coordinate string -> track tile
+  trackTiles: Record<string, TrackTile>; // hex coordinate string -> track tile
   connections: TrackConnection[];
 }
 
@@ -49,7 +56,7 @@ export interface RouteValidation {
   revenue: number;
   path: string[]; // sequence of revenue center IDs
   trainLength: number; // how many revenue centers this route visits
-  hexesTraversed: GridCoordinate[]; // hexes this route passes through
+  hexesTraversed: HexCoordinate[]; // hexes this route passes through
 }
 
 // Train route definition - a route run along track connections
@@ -59,14 +66,14 @@ export interface TrainRoute {
   trainType: string;
   path: string[];
   revenue: number;
-  hexesTraversed: GridCoordinate[];
+  hexesTraversed: HexCoordinate[];
 }
 
 // Map layout for testing
 export interface MapLayout {
   revenueCenters: RevenueCenter[];
   initialTrackTiles: Array<{
-    coordinate: GridCoordinate;
+    coordinate: HexCoordinate;
     tileId: string;
   }>;
 }
