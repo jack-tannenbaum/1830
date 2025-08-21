@@ -32,7 +32,7 @@ const HexGrid: React.FC<HexGridProps> = ({
 
   // Generate cities and towns for the hexes
   const hexFeatures = useMemo(() => {
-    const features = new Map<string, 'city' | 'town'>();
+    const features = new Map<string, 'city' | 'town' | 'two-towns'>();
     
     // Create a seeded random number generator
     const seededRandom = (seed: number) => {
@@ -46,12 +46,14 @@ const HexGrid: React.FC<HexGridProps> = ({
       const hexSeed = seed * 1000 + hex.q * 37 + hex.r * 73 + hex.s * 97 + index;
       const random = seededRandom(hexSeed);
       
-      if (random < 0.10) {
+      if (random < 0.05) {
+        features.set(hexKey, 'two-towns');
+      } else if (random < 0.15) {
         features.set(hexKey, 'city');
-      } else if (random < 0.25) {
+      } else if (random < 0.30) {
         features.set(hexKey, 'town');
       }
-      // 75% remain as white space (no feature)
+      // 70% remain as white space (no feature)
     });
     
     return features;
@@ -124,7 +126,7 @@ const HexGrid: React.FC<HexGridProps> = ({
           } else if (isHighlightedHex) {
             fillColor = '#4caf50'; // green for highlighted
           }
-          // Cities and towns will remain white but have dots added
+          // Cities, towns, and two-towns will remain white but have dots added
           
           return (
             <g key={hexKey}>
@@ -172,6 +174,24 @@ const HexGrid: React.FC<HexGridProps> = ({
                   fill="#000"
                   style={{ pointerEvents: 'none' }}
                 />
+              )}
+              {feature === 'two-towns' && (
+                <>
+                  <circle
+                    cx={pixelPos.x - 3}
+                    cy={pixelPos.y - 12}
+                    r="3"
+                    fill="#000"
+                    style={{ pointerEvents: 'none' }}
+                  />
+                  <circle
+                    cx={pixelPos.x + 3}
+                    cy={pixelPos.y + 10}
+                    r="3"
+                    fill="#000"
+                    style={{ pointerEvents: 'none' }}
+                  />
+                </>
               )}
               
               {/* Coordinate label */}
@@ -238,9 +258,34 @@ const HexGrid: React.FC<HexGridProps> = ({
            </div>
            <span>Towns (15%)</span>
          </div>
+         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+           <div style={{ width: '16px', height: '16px', position: 'relative', backgroundColor: '#ffffff', border: '1px solid #666' }}>
+             <div style={{ 
+               position: 'absolute', 
+               top: '30%', 
+               left: '40%', 
+               transform: 'translate(-50%, -50%)',
+               width: '6px', 
+               height: '6px', 
+               backgroundColor: '#000', 
+               borderRadius: '50%'
+             }}></div>
+             <div style={{ 
+               position: 'absolute', 
+               top: '75%', 
+               left: '60%', 
+               transform: 'translate(-50%, -50%)',
+               width: '6px', 
+               height: '6px', 
+               backgroundColor: '#000', 
+               borderRadius: '50%'
+             }}></div>
+           </div>
+           <span>Two Towns (5%)</span>
+         </div>
          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
            <div style={{ width: '16px', height: '16px', backgroundColor: '#ffffff', border: '1px solid #666' }}></div>
-           <span>White Space (75%)</span>
+           <span>White Space (70%)</span>
          </div>
        </div>
     </div>
