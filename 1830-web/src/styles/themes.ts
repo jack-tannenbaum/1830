@@ -157,6 +157,14 @@ export const lightTheme = {
     border: 'border-gray-300',
     name: 'text-gray-800',
     price: 'text-gray-500'
+  },
+
+  // Tile colors
+  tile: {
+    yellow: '#fef3c7',
+    green: '#dcfce7',
+    brown: '#d97706', // terra cotta
+    gray: '#ffffff'
   }
 };
 
@@ -319,6 +327,14 @@ export const darkTheme = {
     border: 'border-[#3A3A3A]', // dark gray
     name: 'text-[#F0F0F0]', // off-white
     price: 'text-[#B0B0B0]' // light gray
+  },
+
+  // Tile colors
+  tile: {
+    yellow: '#fef3c7',
+    green: '#dcfce7',
+    brown: '#d97706', // terra cotta
+    gray: '#ffffff'
   }
 };
 

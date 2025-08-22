@@ -1,6 +1,8 @@
 import React from 'react';
 import { TileDefinition } from '../types/tiles';
 import { Station, Corporation } from '../types/game';
+import { getSidePosition } from '../utils/hexUtils';
+import { useColors } from '../styles/colors';
 
 interface TileRendererProps {
   tile: TileDefinition;
@@ -21,6 +23,8 @@ const TileRenderer: React.FC<TileRendererProps> = ({
   corporations = [],
   onStationClick
 }) => {
+  const colors = useColors();
+  
   // Calculate hex points for the tile
   const getHexPoints = () => {
     const points = [];
@@ -33,31 +37,7 @@ const TileRenderer: React.FC<TileRendererProps> = ({
     return points.join(' ');
   };
 
-  // Get position for each side (A-F) - center of the side, not the corner
-  const getSidePosition = (side: string) => {
-    const sideIndex = { 'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4, 'F': 5 }[side] || 0;
-    
-    // Calculate the midpoint of each hex side
-    // Get the two corner points for this side
-    const corner1Angle = (sideIndex * Math.PI) / 3 + Math.PI / 6;
-    const corner2Angle = ((sideIndex + 1) * Math.PI) / 3 + Math.PI / 6;
-    
-    const radius = size / 2;
-    const corner1 = {
-      x: size / 2 + radius * Math.cos(corner1Angle),
-      y: size / 2 + radius * Math.sin(corner1Angle)
-    };
-    const corner2 = {
-      x: size / 2 + radius * Math.cos(corner2Angle),
-      y: size / 2 + radius * Math.sin(corner2Angle)
-    };
-    
-    // Return the midpoint between the two corners
-    return {
-      x: (corner1.x + corner2.x) / 2,
-      y: (corner1.y + corner2.y) / 2
-    };
-  };
+
 
   // Get revenue center positions based on tile requirements
   const getRevenueCenterPositions = () => {
@@ -113,10 +93,10 @@ const TileRenderer: React.FC<TileRendererProps> = ({
     if (tile.id === '14') {
       // Tile 14: X pattern centered at the circle
       const center = { x: size / 2, y: size / 2 };
-      const aPos = getSidePosition('A');
-      const cPos = getSidePosition('C');
-      const dPos = getSidePosition('D');
-      const fPos = getSidePosition('F');
+      const aPos = getSidePosition('A', size);
+      const cPos = getSidePosition('C', size);
+      const dPos = getSidePosition('D', size);
+      const fPos = getSidePosition('F', size);
       
       // A-C line through center
       paths.push(`M ${aPos.x} ${aPos.y} L ${center.x} ${center.y} L ${cPos.x} ${cPos.y}`);
@@ -128,10 +108,10 @@ const TileRenderer: React.FC<TileRendererProps> = ({
     if (tile.id === '15') {
       // Tile 15: K pattern centered at the circle
       const center = { x: size / 2, y: size / 2 };
-      const aPos = getSidePosition('A');
-      const bPos = getSidePosition('B');
-      const cPos = getSidePosition('C');
-      const dPos = getSidePosition('D');
+      const aPos = getSidePosition('A', size);
+      const bPos = getSidePosition('B', size);
+      const cPos = getSidePosition('C', size);
+      const dPos = getSidePosition('D', size);
       
       // A-D line through center
       paths.push(`M ${aPos.x} ${aPos.y} L ${center.x} ${center.y} L ${dPos.x} ${dPos.y}`);
@@ -146,7 +126,7 @@ const TileRenderer: React.FC<TileRendererProps> = ({
       const sides = ['A', 'B', 'C', 'D', 'E', 'F'];
       
       sides.forEach(side => {
-        const sidePos = getSidePosition(side);
+        const sidePos = getSidePosition(side, size);
         paths.push(`M ${sidePos.x} ${sidePos.y} L ${center.x} ${center.y}`);
       });
       
@@ -159,7 +139,7 @@ const TileRenderer: React.FC<TileRendererProps> = ({
       const sides = ['A', 'B', 'D', 'F'];
       
       sides.forEach(side => {
-        const sidePos = getSidePosition(side);
+        const sidePos = getSidePosition(side, size);
         paths.push(`M ${sidePos.x} ${sidePos.y} L ${center.x} ${center.y}`);
       });
       
@@ -168,8 +148,8 @@ const TileRenderer: React.FC<TileRendererProps> = ({
     
     // Handle regular connection pairs
     tile.connects.forEach((connection, index) => {
-      const fromPos = getSidePosition(connection.from);
-      const toPos = getSidePosition(connection.to);
+              const fromPos = getSidePosition(connection.from, size);
+        const toPos = getSidePosition(connection.to, size);
       
       // If there's a revenue center, make the track go through it
       if (centers[index]) {
@@ -229,10 +209,10 @@ const TileRenderer: React.FC<TileRendererProps> = ({
         <polygon
           points={hexPoints}
           fill={
-            tile.color === 'yellow' ? '#fef3c7' : 
-            tile.color === 'green' ? '#dcfce7' : 
-            tile.color === 'brown' ? '#d97706' : 
-            '#ffffff'
+            tile.color === 'yellow' ? colors.tile.yellow : 
+            tile.color === 'green' ? colors.tile.green : 
+            tile.color === 'brown' ? colors.tile.brown : 
+            colors.tile.gray
           }
           stroke="#666"
           strokeWidth="1"
@@ -255,7 +235,7 @@ const TileRenderer: React.FC<TileRendererProps> = ({
             key={index}
             cx={center.x}
             cy={center.y}
-            r={center.type === 'city' ? 4 : 2}
+            r={center.type === 'city' ? 16 : 2} // Increased city circle radius to 16px (32px diameter)
             fill={center.type === 'city' ? 'none' : '#000'}
             stroke={center.type === 'city' ? '#000' : 'none'}
             strokeWidth={center.type === 'city' ? 2 : 0}
@@ -274,7 +254,7 @@ const TileRenderer: React.FC<TileRendererProps> = ({
               <circle
                 cx={x}
                 cy={y}
-                r={station.type === 'city' ? 4 : 2}
+                r={station.type === 'city' ? 16 : 2} // Increased city circle radius to 16px (32px diameter)
                 fill={station.type === 'city' ? 'none' : '#000'}
                 stroke={station.type === 'city' ? '#000' : 'none'}
                 strokeWidth={station.type === 'city' ? 2 : 0}
@@ -283,22 +263,39 @@ const TileRenderer: React.FC<TileRendererProps> = ({
                 pointerEvents="all"
               />
               
-              {/* Corporation indicator */}
+              {/* Corporation logo when station is assigned */}
               {corporation && (
-                <circle
-                  cx={x}
-                  cy={y}
-                  r={station.type === 'city' ? 2 : 1}
-                  fill={corporation.color}
-                  stroke="none"
-                />
+                <g>
+                  {/* Corporation circle background */}
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r={station.type === 'city' ? 14 : 1} // Slightly smaller than outer circle
+                    fill={corporation.color}
+                    stroke="white"
+                    strokeWidth="2"
+                  />
+                  
+                  {/* Corporation abbreviation */}
+                  <text
+                    x={x}
+                    y={y + 4} // Adjust vertical position for better centering
+                    fontSize="10px"
+                    fontWeight="bold"
+                    fill={corporation.color === '#FFFF00' || corporation.color === '#FFA500' ? '#000000' : '#FFFFFF'}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                  >
+                    {corporation.abbreviation}
+                  </text>
+                </g>
               )}
               
               {/* Station ID for debugging */}
               {showId && (
                 <text
-                  x={x + 8}
-                  y={y - 8}
+                  x={x + 20}
+                  y={y - 20}
                   fontSize="6px"
                   fill="#666"
                   textAnchor="start"

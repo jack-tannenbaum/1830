@@ -132,7 +132,7 @@ const StationTest: React.FC = () => {
       {/* Tile Library */}
       <div>
         <h3>Tile Library (Click stations to assign corporations):</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '10px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '15px' }}>
           {ALL_TILES.filter(tile => 
             tile.requires.type === 'city' || 
             tile.requires.type === 'B' || 
@@ -144,7 +144,7 @@ const StationTest: React.FC = () => {
               <div key={tile.id} style={{ textAlign: 'center' }}>
                 <TileRenderer
                   tile={tile}
-                  size={60}
+                  size={80}
                   showId={true}
                   stations={tileStations}
                   corporations={corporations}

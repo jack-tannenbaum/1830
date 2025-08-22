@@ -5,27 +5,9 @@ import { RoundType, ActionType, GamePhase } from '../types/game';
 import { GAME_CONSTANTS, PRIVATE_COMPANIES, CORPORATIONS, STOCK_MARKET_GRID } from '../types/constants';
 import { getPhaseConfig } from '../types/phaseConfigs';
 import { createTurn, validateAction, createGameAction, recordAction, endTurn, getAvailableActions, DEFAULT_TURN_TIMEOUT } from '../utils/turnManager';
+import { findSharePricePosition } from '../utils/stockMarketUtils';
 
 // Helper functions for stock market
-const findParValuePosition = (parValue: number): Point | null => {
-  // Map par values to their row in the red column (column 6)
-  // Looking at STOCK_MARKET_GRID column 6: ["100", "90", "100", "82", "100", "67", "67", "67", null, null, null]
-  const parValueToRow: Record<number, number> = {
-    100: 0, // Row 0, Column 6
-    90: 1,  // Row 1, Column 6  
-    82: 2,
-    76: 3,
-    71: 4,  // Row 3, Column 6
-    67: 5   // Row 5, Column 6
-  };
-  
-  const row = parValueToRow[parValue];
-  if (row !== undefined) {
-    return { x: 6, y: row };
-  }
-  
-  return null;
-};
 
 const generateInitialIPOShares = (corporationId: string): Certificate[] => {
   const shares: Certificate[] = [];
@@ -187,6 +169,9 @@ interface GameStore extends GameState {
   
   // Debug function to manually check and remove B&O private company
   checkAndRemoveBOPrivateCompany: () => void;
+  
+  // Function to remove B&O private company from a specific player
+  removeBOPrivateCompany: (playerId: string) => void;
 }
 
 const createInitialState = (): Partial<GameState> => ({
@@ -684,46 +669,45 @@ export const useGameStore = create<GameStore>()(
       const prr = state.corporations.find(c => c.name === 'Pennsylvania Railroad');
       
       if (prr && !prr.started) {
-        // Create regular 10% certificate for PRR (NOT president's certificate)
-        const certificate: Certificate = {
-          corporationId: prr.id,
-          percentage: 10, // Regular 10% share, NOT president's certificate
-          isPresident: false
-        };
+        // Take one 10% share from PRR IPO pool
+        const ipoShare = prr.ipoShares.find(cert => !cert.isPresident && cert.percentage === 10);
         
-        // Update state to give certificate and track ownership properly
-        set((state) => {
-          // Get current player shares for PRR
-          const currentPlayerShares = prr.playerShares.get(camdenAmboyOwner.id) || [];
-          const updatedPlayerShares = [...currentPlayerShares, certificate];
+        if (ipoShare) {
+          // Update state to give certificate and track ownership properly
+          set((state) => {
+            // Get current player shares for PRR
+            const currentPlayerShares = prr.playerShares.get(camdenAmboyOwner.id) || [];
+            const updatedPlayerShares = [...currentPlayerShares, ipoShare];
+            
+            return {
+              players: state.players.map(p => 
+                p.id === camdenAmboyOwner.id 
+                  ? { ...p, certificates: [...p.certificates, ipoShare] }
+                  : p
+              ),
+              corporations: state.corporations.map(c => 
+                c.id === prr.id 
+                  ? {
+                      ...c,
+                      ipoShares: c.ipoShares.filter(cert => cert !== ipoShare), // Remove from IPO pool
+                      playerShares: new Map([
+                        ...c.playerShares,
+                        [camdenAmboyOwner.id, updatedPlayerShares]
+                      ])
+                    }
+                  : c
+              )
+            };
+          });
           
-          return {
-            players: state.players.map(p => 
-              p.id === camdenAmboyOwner.id 
-                ? { ...p, certificates: [...p.certificates, certificate] }
-                : p
-            ),
-            corporations: state.corporations.map(c => 
-              c.id === prr.id 
-                ? {
-                    ...c,
-                    playerShares: new Map([
-                      ...c.playerShares,
-                      [camdenAmboyOwner.id, updatedPlayerShares]
-                    ])
-                  }
-                : c
-            )
-          };
-        });
-        
-        // Add notification
-        get().addNotification({
-          title: 'Camden & Amboy Effect',
-          message: `${camdenAmboyOwner.name} immediately receives a 10% share of Pennsylvania Railroad`,
-          type: 'success',
-          duration: 5000
-        });
+          // Add notification
+          get().addNotification({
+            title: 'Camden & Amboy Effect',
+            message: `${camdenAmboyOwner.name} immediately receives a 10% share of Pennsylvania Railroad`,
+            type: 'success',
+            duration: 5000
+          });
+        }
       }
     }
     
@@ -950,10 +934,10 @@ export const useGameStore = create<GameStore>()(
         return false;
       }
       
-      // Find the par value position on the stock market
-      const parValuePosition = findParValuePosition(parValue);
-      if (!parValuePosition) {
-        console.log('Invalid par value');
+      // Find the share price position on the stock market
+      const sharePricePosition = findSharePricePosition(parValue);
+      if (!sharePricePosition) {
+        console.log('Invalid share price');
         return false;
       }
       
@@ -994,7 +978,7 @@ export const useGameStore = create<GameStore>()(
           ...state.stockMarket,
           tokenPositions: new Map([
             ...state.stockMarket.tokenPositions,
-            [corporationId, { x: 6, y: parValuePosition.y }] // Place in column 6 at the same row as par value
+            [corporationId, sharePricePosition] // Place in the red column at the share price row
           ])
         }
       }));
@@ -1212,30 +1196,15 @@ export const useGameStore = create<GameStore>()(
           if (boPrivateOwner) {
             console.log(`Removing B&O private company from ${boPrivateOwner.name}`);
             
-            // Remove B&O private company from the owner
-            const updatedPlayers = state.players.map(p => 
-              p.id === boPrivateOwner.id 
-                ? { 
-                    ...p, 
-                    privateCompanies: p.privateCompanies.filter(pc => pc.name !== 'Baltimore & Ohio')
-                  }
-                : p
-            );
+            // Store the B&O owner info for later removal
+            const boOwnerId = boPrivateOwner.id;
             
-            // Update the state with the modified players
-            set((state) => ({
-              ...state,
-              players: updatedPlayers
-            }));
+            // Schedule the B&O removal for after the current state update
+            setTimeout(() => {
+              get().removeBOPrivateCompany(boOwnerId);
+            }, 0);
             
-            get().addNotification({
-              title: 'Baltimore & Ohio Private Company Closed',
-              message: `${boPrivateOwner.name}'s Baltimore & Ohio private company is closed as the corporation is now floated`,
-              type: 'info',
-              duration: 5000
-            });
-            
-            console.log('B&O private company removal completed');
+            console.log('B&O private company removal scheduled');
           } else {
             console.log('No B&O private company owner found');
           }
@@ -1291,8 +1260,8 @@ export const useGameStore = create<GameStore>()(
     // Handle B&O par value setting (if this was a B&O purchase and it needs par value set)
     if (corporation.name === 'Baltimore & Ohio' && corporation.started && !corporation.parValue && parValue) {
       // Set the par value and share price for B&O
-      const parValuePosition = findParValuePosition(parValue);
-      if (parValuePosition) {
+      const sharePricePosition = findSharePricePosition(parValue);
+      if (sharePricePosition) {
         set((state) => ({
           corporations: state.corporations.map(c => 
             c.id === corporationId 
@@ -1303,7 +1272,7 @@ export const useGameStore = create<GameStore>()(
             ...state.stockMarket,
             tokenPositions: new Map([
               ...state.stockMarket.tokenPositions,
-              [corporationId, parValuePosition]
+              [corporationId, sharePricePosition]
             ])
           }
         }));
@@ -1321,31 +1290,18 @@ export const useGameStore = create<GameStore>()(
   },
 
   sellCertificate: (playerId, corporationId, shares) => {
-    console.log('=== sellCertificate called ===');
-    console.log('playerId:', playerId);
-    console.log('corporationId:', corporationId);
-    console.log('shares:', shares);
-    console.log('=== DEBUG: Starting sellCertificate logic (v2) ===');
     
     const state = get();
     const player = state.players.find(p => p.id === playerId);
     const corporation = state.corporations.find(c => c.id === corporationId);
     
     if (!player || !corporation) {
-      console.log('Player or corporation not found');
       return false;
     }
     
-    console.log('Player:', player.name);
-    console.log('Corporation:', corporation.name);
-    
     // Check if player has enough certificates (check corporation's playerShares map)
     const playerCerts = corporation.playerShares.get(playerId) || [];
-    console.log('Player certificates for this corporation (from playerShares):', playerCerts.length);
-    console.log('Player certificates (from player.certificates):', player.certificates.length);
-    console.log('Shares requested to sell:', shares);
     if (playerCerts.length < shares) {
-      console.log('Player does not have enough certificates');
       return false;
     }
     
@@ -1353,28 +1309,19 @@ export const useGameStore = create<GameStore>()(
     const regularCerts = playerCerts.filter(cert => !cert.isPresident);
     const presidentCerts = playerCerts.filter(cert => cert.isPresident);
     
-    console.log('=== DEBUG: Certificate Analysis ===');
-    console.log('regularCerts.length:', regularCerts.length);
-    console.log('presidentCerts.length:', presidentCerts.length);
-    console.log('shares requested:', shares);
-    console.log('shares > regularCerts.length:', shares > regularCerts.length);
-    console.log('regularCerts:', regularCerts.map(c => `${c.percentage}%${c.isPresident ? ' (P)' : ''}`));
-    console.log('presidentCerts:', presidentCerts.map(c => `${c.percentage}%${c.isPresident ? ' (P)' : ''}`));
+
     
     // If we're trying to sell more shares than we have regular certificates, 
     // we must be trying to sell a President's Certificate
     if (shares > regularCerts.length) {
-      console.log('Player is trying to sell a President\'s Certificate, checking if transfer is possible');
       
       // Check if any other player has at least 20% ownership to become president
       // In 1830, another player needs at least 20% to become president
       let hasOtherPlayerWithEnoughOwnership = false;
       for (const [otherPlayerId, otherPlayerCerts] of corporation.playerShares.entries()) {
         const otherPlayerOwnership = otherPlayerCerts.reduce((sum, cert) => sum + cert.percentage, 0);
-        console.log(`Player ${otherPlayerId} has ${otherPlayerCerts.length} certificates (${otherPlayerOwnership}% ownership)`);
         if (otherPlayerId !== playerId && otherPlayerOwnership >= 20) {
           hasOtherPlayerWithEnoughOwnership = true;
-          console.log(`Player ${otherPlayerId} has enough ownership to become president`);
           break;
         }
       }
@@ -2484,6 +2431,38 @@ export const useGameStore = create<GameStore>()(
         type: 'info',
         duration: 3000
       });
+    }
+  },
+
+  // Function to remove B&O private company from a specific player
+  removeBOPrivateCompany: (playerId: string) => {
+    const state = get();
+    const player = state.players.find(p => p.id === playerId);
+    
+    if (player && player.privateCompanies.some(pc => pc.name === 'Baltimore & Ohio')) {
+      console.log(`=== EXECUTING B&O PRIVATE COMPANY REMOVAL FOR ${player.name} ===`);
+      
+      set((state) => ({
+        players: state.players.map(p => 
+          p.id === playerId 
+            ? { 
+                ...p, 
+                privateCompanies: p.privateCompanies.filter(pc => pc.name !== 'Baltimore & Ohio')
+              }
+            : p
+        )
+      }));
+      
+      get().addNotification({
+        title: 'Baltimore & Ohio Private Company Closed',
+        message: `${player.name}'s Baltimore & Ohio private company is closed as the corporation is now floated`,
+        type: 'info',
+        duration: 5000
+      });
+      
+      console.log('B&O private company removal completed');
+    } else {
+      console.log('B&O private company not found for removal');
     }
   }
     }),

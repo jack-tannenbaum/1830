@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { HexCoordinate } from '../types/mapGraph';
 import { hexToString, getNeighbors, hexesInRadius } from '../utils/hexCoordinates';
 import { ALL_TILES } from '../types/tiles';
+import { getSidePosition } from '../utils/hexUtils';
+import { useColors } from '../styles/colors';
 
 interface HexGridProps {
   centerHex?: HexCoordinate;
@@ -28,6 +30,8 @@ const HexGrid: React.FC<HexGridProps> = ({
   children,
   seed = 0
 }) => {
+  const colors = useColors();
+  
   // Calculate hex dimensions
   const width = hexSize * 2;
   const height = Math.sqrt(3) * hexSize;
@@ -151,29 +155,8 @@ const HexGrid: React.FC<HexGridProps> = ({
     const centerX = pixelPos.x;
     const centerY = pixelPos.y;
     
-    // Get A and D side positions
-    const getSidePosition = (sideIndex: number) => {
-      const corner1Angle = (sideIndex * Math.PI) / 3 + Math.PI / 6;
-      const corner2Angle = ((sideIndex + 1) * Math.PI) / 3 + Math.PI / 6;
-      
-      const radius = size; // Use full size to reach the edges
-      const corner1 = {
-        x: centerX + radius * Math.cos(corner1Angle),
-        y: centerY + radius * Math.sin(corner1Angle)
-      };
-      const corner2 = {
-        x: centerX + radius * Math.cos(corner2Angle),
-        y: centerY + radius * Math.sin(corner2Angle)
-      };
-      
-      return {
-        x: (corner1.x + corner2.x) / 2,
-        y: (corner1.y + corner2.y) / 2
-      };
-    };
-    
-    const aPos = getSidePosition(0); // A side (top-right)
-    const dPos = getSidePosition(3); // D side (top-left)
+    const aPos = getSidePosition('A', size, centerX, centerY, size); // A side (top-right)
+    const dPos = getSidePosition('D', size, centerX, centerY, size); // D side (top-left)
     
     // City positions (like 2-city tiles)
     const upperCityX = centerX - 3; // Upper city (top-left area)
@@ -200,29 +183,8 @@ const HexGrid: React.FC<HexGridProps> = ({
     const centerX = pixelPos.x;
     const centerY = pixelPos.y;
     
-    // Get B and D side positions
-    const getSidePosition = (sideIndex: number) => {
-      const corner1Angle = (sideIndex * Math.PI) / 3 + Math.PI / 6;
-      const corner2Angle = ((sideIndex + 1) * Math.PI) / 3 + Math.PI / 6;
-      
-      const radius = size; // Use full size to reach the edges
-      const corner1 = {
-        x: centerX + radius * Math.cos(corner1Angle),
-        y: centerY + radius * Math.sin(corner1Angle)
-      };
-      const corner2 = {
-        x: centerX + radius * Math.cos(corner2Angle),
-        y: centerY + radius * Math.sin(corner2Angle)
-      };
-      
-      return {
-        x: (corner1.x + corner2.x) / 2,
-        y: (corner1.y + corner2.y) / 2
-      };
-    };
-    
-    const bPos = getSidePosition(1); // B side
-    const dPos = getSidePosition(3); // D side
+    const bPos = getSidePosition('B', size, centerX, centerY, size); // B side
+    const dPos = getSidePosition('D', size, centerX, centerY, size); // D side
     
     // City position (slightly above center)
     const cityX = centerX;
@@ -273,11 +235,11 @@ const HexGrid: React.FC<HexGridProps> = ({
           } else if (isHighlightedHex) {
             fillColor = '#4caf50'; // green for highlighted
           } else if (feature === 'B') {
-            fillColor = '#fef3c7'; // yellow for B tiles
-          } else if (feature === '2-city') {
-            fillColor = '#fef3c7'; // yellow for 2-city tiles
-          } else if (feature === 'NYC') {
-            fillColor = '#fef3c7'; // yellow for NYC tiles
+                      fillColor = colors.tile.yellow; // yellow for B tiles
+        } else if (feature === '2-city') {
+          fillColor = colors.tile.yellow; // yellow for 2-city tiles
+        } else if (feature === 'NYC') {
+          fillColor = colors.tile.yellow; // yellow for NYC tiles
           }
           // Cities, towns, and two-towns will remain white but have dots added
           
@@ -466,7 +428,7 @@ const HexGrid: React.FC<HexGridProps> = ({
         border: '1px solid #ccc'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-          <div style={{ width: '16px', height: '16px', position: 'relative', backgroundColor: '#fef3c7', border: '1px solid #666' }}>
+          <div style={{ width: '16px', height: '16px', position: 'relative', backgroundColor: colors.tile.yellow, border: '1px solid #666' }}>
             <div style={{ 
               position: 'absolute', 
               top: '50%', 
@@ -489,7 +451,7 @@ const HexGrid: React.FC<HexGridProps> = ({
           <span>B Tiles (on Cities)</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-          <div style={{ width: '16px', height: '16px', position: 'relative', backgroundColor: '#fef3c7', border: '1px solid #666' }}>
+          <div style={{ width: '16px', height: '16px', position: 'relative', backgroundColor: colors.tile.yellow, border: '1px solid #666' }}>
             <div style={{ 
               position: 'absolute', 
               top: '50%', 
@@ -516,7 +478,7 @@ const HexGrid: React.FC<HexGridProps> = ({
           <span>2-City Tiles</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-          <div style={{ width: '16px', height: '16px', position: 'relative', backgroundColor: '#fef3c7', border: '1px solid #666' }}>
+          <div style={{ width: '16px', height: '16px', position: 'relative', backgroundColor: colors.tile.yellow, border: '1px solid #666' }}>
             <div style={{ 
               position: 'absolute', 
               top: '50%', 
