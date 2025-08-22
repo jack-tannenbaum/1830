@@ -57,7 +57,8 @@ export const GameBoard: React.FC = () => {
     stockMarket,
     setGameState,
     operatingRoundState,
-    operatingRoundsCompleted
+    operatingRoundsCompleted,
+    checkAndRemoveBOPrivateCompany
   } = useGameStore();
 
   const colors = useColors();
@@ -142,6 +143,14 @@ export const GameBoard: React.FC = () => {
                   title="Start Private Auction (Debug)"
                 >
                   💰 Auction
+                </button>
+                
+                <button
+                  onClick={checkAndRemoveBOPrivateCompany}
+                  className={`px-3 py-2 rounded-lg transition-colors duration-300 ${colors.button.warning}`}
+                  title="Remove B&O Private Company (Debug)"
+                >
+                  🧹 B&O Cleanup
                 </button>
               </div>
               

@@ -184,6 +184,9 @@ interface GameStore extends GameState {
   
   // Operating round management
   handleOperatingRoundComplete: () => void;
+  
+  // Debug function to manually check and remove B&O private company
+  checkAndRemoveBOPrivateCompany: () => void;
 }
 
 const createInitialState = (): Partial<GameState> => ({
@@ -218,12 +221,49 @@ const createInitialState = (): Partial<GameState> => ({
   operatingRoundsCompleted: 0,
 });
 
+// Helper function to check and remove B&O private company if B&O corporation is floated
+const checkAndRemoveBOPrivateCompany = (state: GameState): GameState => {
+  const boCorporation = state.corporations.find(corp => corp.name === 'Baltimore & Ohio');
+  
+  if (boCorporation && boCorporation.floated) {
+    // Find the B&O private company owner
+    const boPrivateOwner = state.players.find(player => 
+      player.privateCompanies.some(pc => pc.name === 'Baltimore & Ohio')
+    );
+    
+    if (boPrivateOwner) {
+      console.log('=== B&O CORPORATION ALREADY FLOATED - REMOVING PRIVATE COMPANY ===');
+      console.log(`Removing B&O private company from ${boPrivateOwner.name}`);
+      
+      // Remove B&O private company from the owner
+      const updatedPlayers = state.players.map(p => 
+        p.id === boPrivateOwner.id 
+          ? { 
+              ...p, 
+              privateCompanies: p.privateCompanies.filter(pc => pc.name !== 'Baltimore & Ohio')
+            }
+          : p
+      );
+      
+      return {
+        ...state,
+        players: updatedPlayers
+      };
+    }
+  }
+  
+  return state;
+};
+
 export const useGameStore = create<GameStore>()(
   persist(
     (set, get) => ({
-      ...createInitialState() as GameState,
+      ...checkAndRemoveBOPrivateCompany(createInitialState() as GameState),
 
-      setGameState: (newState) => set((state) => ({ ...state, ...newState })),
+      setGameState: (newState) => set((state) => {
+        const updatedState = { ...state, ...newState };
+        return checkAndRemoveBOPrivateCompany(updatedState);
+      }),
 
       newGame: () => {
         set(createInitialState() as GameState);
@@ -321,7 +361,7 @@ export const useGameStore = create<GameStore>()(
     const firstPlayerId = players[0].id;
     const firstTurn = createTurn(firstPlayerId, RoundType.PRIVATE_AUCTION, getAvailableActions(RoundType.PRIVATE_AUCTION), 45000);
     
-    return {
+    const finalGameState = {
       ...gameState,
       currentTurn: firstTurn,
       connectedPlayers: players.map(p => ({
@@ -331,6 +371,8 @@ export const useGameStore = create<GameStore>()(
         displayName: p.name
       }))
     };
+    
+    return checkAndRemoveBOPrivateCompany(finalGameState);
   }),
 
   buyCheapestPrivate: (playerId) => {
@@ -1154,22 +1196,36 @@ export const useGameStore = create<GameStore>()(
         
         // Handle B&O private company removal when B&O corporation is floated
         if (corporation.name === 'Baltimore & Ohio') {
+          console.log('=== B&O CORPORATION FLOATED - CHECKING FOR PRIVATE COMPANY REMOVAL ===');
+          
           // Find the B&O private company owner
           const boPrivateOwner = state.players.find(player => 
             player.privateCompanies.some(pc => pc.name === 'Baltimore & Ohio')
           );
           
+          console.log('B&O private company owner found:', boPrivateOwner?.name);
+          console.log('All players and their private companies:');
+          state.players.forEach(player => {
+            console.log(`  ${player.name}: ${player.privateCompanies.map(pc => pc.name).join(', ')}`);
+          });
+          
           if (boPrivateOwner) {
+            console.log(`Removing B&O private company from ${boPrivateOwner.name}`);
+            
             // Remove B&O private company from the owner
+            const updatedPlayers = state.players.map(p => 
+              p.id === boPrivateOwner.id 
+                ? { 
+                    ...p, 
+                    privateCompanies: p.privateCompanies.filter(pc => pc.name !== 'Baltimore & Ohio')
+                  }
+                : p
+            );
+            
+            // Update the state with the modified players
             set((state) => ({
-              players: state.players.map(p => 
-                p.id === boPrivateOwner.id 
-                  ? { 
-                      ...p, 
-                      privateCompanies: p.privateCompanies.filter(pc => pc.name !== 'Baltimore & Ohio')
-                    }
-                  : p
-              )
+              ...state,
+              players: updatedPlayers
             }));
             
             get().addNotification({
@@ -1178,6 +1234,10 @@ export const useGameStore = create<GameStore>()(
               type: 'info',
               duration: 5000
             });
+            
+            console.log('B&O private company removal completed');
+          } else {
+            console.log('No B&O private company owner found');
           }
         }
       }
@@ -2410,6 +2470,21 @@ export const useGameStore = create<GameStore>()(
   getAvailableActions: () => {
     const state = get();
     return getAvailableActions(state.roundType);
+  },
+
+  // Debug function to manually check and remove B&O private company
+  checkAndRemoveBOPrivateCompany: () => {
+    const state = get();
+    const updatedState = checkAndRemoveBOPrivateCompany(state);
+    if (updatedState !== state) {
+      set(updatedState);
+      get().addNotification({
+        title: 'B&O Private Company Cleanup',
+        message: 'B&O private company has been removed as the corporation is floated',
+        type: 'info',
+        duration: 3000
+      });
+    }
   }
     }),
     {
