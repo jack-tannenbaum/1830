@@ -3,6 +3,7 @@ import { GameSetup } from './components/GameSetup';
 import { GameBoard } from './components/GameBoard';
 import MapGraphTest from './components/MapGraphTest';
 import HexGridTest from './components/HexGridTest';
+import StationTest from './components/StationTest';
 import { useGameStore } from './store/gameStore';
 import { useThemeStore } from './store/themeStore';
 import { useColors } from './styles/colors';
@@ -19,6 +20,7 @@ function App() {
   // Check if we want to show the map test
   const isMapTest = window.location.search.includes('test=map');
   const isHexGridTest = window.location.search.includes('test=hexgrid');
+  const isStationTest = window.location.search.includes('test=station');
 
   useEffect(() => {
     // Check if there's an active game when the app loads
@@ -88,6 +90,11 @@ function App() {
   // Show hex grid test if requested
   if (isHexGridTest) {
     return <HexGridTest />;
+  }
+
+  // Show station test if requested
+  if (isStationTest) {
+    return <StationTest />;
   }
 
   // Show game board if game has started and has players

@@ -20,6 +20,14 @@ export interface TileDefinition {
   connects: TileConnection[];
   quantity: number;
   upgrades?: string[]; // IDs of tiles this can upgrade to
+  stations?: StationDefinition[]; // Explicit station definitions
+}
+
+export interface StationDefinition {
+  id: string;
+  position: { x: number; y: number };
+  type: 'city' | 'town';
+  maxCorporations?: number; // How many corporations can place stations here
 }
 
 // All tiles from 1830 (yellow, green, brown, gray)

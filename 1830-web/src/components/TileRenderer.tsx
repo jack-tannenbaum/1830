@@ -1,18 +1,25 @@
 import React from 'react';
 import { TileDefinition } from '../types/tiles';
+import { Station, Corporation } from '../types/game';
 
 interface TileRendererProps {
   tile: TileDefinition;
   size?: number;
   showId?: boolean;
   highlight?: boolean;
+  stations?: Station[]; // Stations for this tile
+  corporations?: Corporation[]; // Available corporations for assignment
+  onStationClick?: (stationId: string) => void; // Callback when station is clicked
 }
 
-const TileRenderer: React.FC<TileRendererProps> = ({ 
-  tile, 
-  size = 40, 
+const TileRenderer: React.FC<TileRendererProps> = ({
+  tile,
+  size = 60,
   showId = true,
-  highlight = false 
+  highlight = false,
+  stations = [],
+  corporations = [],
+  onStationClick
 }) => {
   // Calculate hex points for the tile
   const getHexPoints = () => {
@@ -254,6 +261,54 @@ const TileRenderer: React.FC<TileRendererProps> = ({
             strokeWidth={center.type === 'city' ? 2 : 0}
           />
         ))}
+        
+        {/* Station assignments */}
+        {stations.map((station) => {
+          const corporation = corporations.find(corp => corp.id === station.assignedCorporation);
+          const x = station.position.x * size;
+          const y = station.position.y * size;
+          
+          return (
+            <g key={station.id}>
+              {/* Station circle */}
+              <circle
+                cx={x}
+                cy={y}
+                r={station.type === 'city' ? 4 : 2}
+                fill={station.type === 'city' ? 'none' : '#000'}
+                stroke={station.type === 'city' ? '#000' : 'none'}
+                strokeWidth={station.type === 'city' ? 2 : 0}
+                style={{ cursor: onStationClick ? 'pointer' : 'default' }}
+                onClick={() => onStationClick?.(station.id)}
+                pointerEvents="all"
+              />
+              
+              {/* Corporation indicator */}
+              {corporation && (
+                <circle
+                  cx={x}
+                  cy={y}
+                  r={station.type === 'city' ? 2 : 1}
+                  fill={corporation.color}
+                  stroke="none"
+                />
+              )}
+              
+              {/* Station ID for debugging */}
+              {showId && (
+                <text
+                  x={x + 8}
+                  y={y - 8}
+                  fontSize="6px"
+                  fill="#666"
+                  textAnchor="start"
+                >
+                  {station.id.split('-').pop()}
+                </text>
+              )}
+            </g>
+          );
+        })}
       </svg>
       
       {/* Tile ID */}

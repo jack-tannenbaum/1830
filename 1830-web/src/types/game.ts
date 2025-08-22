@@ -112,6 +112,10 @@ export interface Corporation {
   started: boolean; // Corporation is started when president's certificate is purchased
   floated: boolean; // Corporation is floated when 60% of shares are sold from IPO
   color: string;
+  stations: string[]; // Array of station IDs this corporation owns
+  shares: number; // Number of shares issued
+  parValue: number;
+  isFloated: boolean;
 }
 
 export interface Player {
@@ -321,4 +325,18 @@ export interface GameAction {
   data: Record<string, unknown>;
   clientId?: string; // For future WebSocket implementation
   sequenceNumber?: number; // For future conflict resolution
+}
+
+export interface Station {
+  id: string;
+  position: { x: number; y: number };
+  type: 'city' | 'town';
+  assignedCorporation?: string; // Corporation ID that owns this station
+  isOccupied: boolean;
+}
+
+export interface TileWithStations {
+  tileId: string;
+  stations: Station[];
+  placedCorporations: string[]; // Corporation IDs that have placed stations here
 }
