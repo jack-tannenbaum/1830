@@ -26,14 +26,14 @@ export const TRAIN_DATA: Record<TrainType, { cost: number; maxCities: number; qu
 };
 
 export const CORPORATIONS: Omit<Corporation, 'id' | 'presidentId' | 'sharePrice' | 'treasury' | 'trains' | 'tokens' | 'ipoShares' | 'bankShares' | 'playerShares' | 'floated'>[] = [
-  { name: 'Pennsylvania Railroad', abbreviation: 'PRR', parValue: undefined, color: '#008000', started: false },
-  { name: 'New York Central', abbreviation: 'NYC', parValue: undefined, color: '#1f2937', started: false },
-  { name: 'Canadian Pacific', abbreviation: 'CPR', parValue: undefined, color: '#FF0000', started: false },
-  { name: 'Baltimore & Ohio', abbreviation: 'B&O', parValue: undefined, color: '#800080', started: false },
-  { name: 'Chesapeake & Ohio', abbreviation: 'C&O', parValue: undefined, color: '#0000FF', started: false },
-  { name: 'Erie Railroad', abbreviation: 'ERIE', parValue: undefined, color: '#FFFF00', started: false },
-  { name: 'New York, New Haven & Hartford', abbreviation: 'NNH', parValue: undefined, color: '#FFA500', started: false },
-  { name: 'Boston & Maine', abbreviation: 'B&M', parValue: undefined, color: '#8B4513', started: false }
+  { name: 'Pennsylvania Railroad', abbreviation: 'PRR', parValue: undefined, color: '#008000', started: false, stations: [], shares: 0, isFloated: false },
+  { name: 'New York Central', abbreviation: 'NYC', parValue: undefined, color: '#1f2937', started: false, stations: [], shares: 0, isFloated: false },
+  { name: 'Canadian Pacific', abbreviation: 'CPR', parValue: undefined, color: '#FF0000', started: false, stations: [], shares: 0, isFloated: false },
+  { name: 'Baltimore & Ohio', abbreviation: 'B&O', parValue: undefined, color: '#800080', started: false, stations: [], shares: 0, isFloated: false },
+  { name: 'Chesapeake & Ohio', abbreviation: 'C&O', parValue: undefined, color: '#0000FF', started: false, stations: [], shares: 0, isFloated: false },
+  { name: 'Erie Railroad', abbreviation: 'ERIE', parValue: undefined, color: '#FFFF00', started: false, stations: [], shares: 0, isFloated: false },
+  { name: 'New York, New Haven & Hartford', abbreviation: 'NNH', parValue: undefined, color: '#FFA500', started: false, stations: [], shares: 0, isFloated: false },
+  { name: 'Boston & Maine', abbreviation: 'B&M', parValue: undefined, color: '#8B4513', started: false, stations: [], shares: 0, isFloated: false }
 ];
 
 export const PRIVATE_COMPANIES: Omit<PrivateCompany, 'id'>[] = [

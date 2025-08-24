@@ -114,7 +114,6 @@ export interface Corporation {
   color: string;
   stations: string[]; // Array of station IDs this corporation owns
   shares: number; // Number of shares issued
-  parValue: number;
   isFloated: boolean;
 }
 

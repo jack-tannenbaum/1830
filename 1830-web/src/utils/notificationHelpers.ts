@@ -29,7 +29,7 @@ export const createNotificationHelpers = () => {
     error: (options: NotificationOptions) => {
       addNotification({
         ...options,
-        type: 'error',
+        type: 'warning',
         duration: options.duration ?? 5000
       });
     },

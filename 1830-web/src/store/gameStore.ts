@@ -94,7 +94,10 @@ const createCorporationFromTemplate = (corpTemplate: typeof CORPORATIONS[0]): Co
     playerShares: new Map(),
     started: false, // Corporation is started when president's certificate is purchased
     floated: false, // Corporation is floated when 60% of shares are sold from IPO
-    color: corpTemplate.color
+    color: corpTemplate.color,
+    stations: corpTemplate.stations,
+    shares: corpTemplate.shares,
+    isFloated: corpTemplate.isFloated
   };
 };
 
@@ -174,7 +177,7 @@ interface GameStore extends GameState {
   removeBOPrivateCompany: (playerId: string) => void;
 }
 
-const createInitialState = (): Partial<GameState> => ({
+const createInitialState = (): GameState => ({
   id: crypto.randomUUID(),
   phase: GamePhase.ONE,
   roundType: RoundType.PRIVATE_AUCTION,
@@ -243,7 +246,7 @@ const checkAndRemoveBOPrivateCompany = (state: GameState): GameState => {
 export const useGameStore = create<GameStore>()(
   persist(
     (set, get) => ({
-      ...checkAndRemoveBOPrivateCompany(createInitialState() as GameState),
+      ...checkAndRemoveBOPrivateCompany(createInitialState()),
 
       setGameState: (newState) => set((state) => {
         const updatedState = { ...state, ...newState };
@@ -251,7 +254,7 @@ export const useGameStore = create<GameStore>()(
       }),
 
       newGame: () => {
-        set(createInitialState() as GameState);
+        set(createInitialState());
       },
 
       hasActiveGame: () => {
