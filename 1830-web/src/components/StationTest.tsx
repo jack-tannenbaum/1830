@@ -60,7 +60,7 @@ const StationTest: React.FC = () => {
     }
   };
 
-  const handleRemoveStation = (tileId: string, corporationId: string) => {
+  const _handleRemoveStation = (tileId: string, corporationId: string) => {
     const success = stationManager.removeStation(tileId, corporationId);
     if (success) {
       setCorporations([...corporations]);

@@ -162,9 +162,7 @@ const TileRenderer: React.FC<TileRendererProps> = ({
           paths.push(`M ${fromPos.x} ${fromPos.y} L ${toPos.x} ${toPos.y}`);
         } else {
           // Add a curve for non-opposite connections
-          const centerX = size / 2;
-          const centerY = size / 2;
-          
+
           // Create a control point that's offset from the center for a gentle curve
           const midX = (fromPos.x + toPos.x) / 2;
           const midY = (fromPos.y + toPos.y) / 2;

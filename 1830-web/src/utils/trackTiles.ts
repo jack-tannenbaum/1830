@@ -1,4 +1,4 @@
-import type { TrackTile, HexCoordinate, GameMapGraph, TrackConnection } from '../types/mapGraph';
+import type { TrackTile, HexCoordinate, GameMapGraph, TrackConnection, RevenueCenter } from '../types/mapGraph';
 import { hexToString, getNeighbors } from './hexCoordinates';
 
 // === Track Tile Definitions ===
@@ -300,10 +300,10 @@ export function placeTrackTile(
 // Helper function to find path between revenue centers
 function findPathBetweenCenters(
   graph: GameMapGraph,
-  center1: any,
-  center2: any,
+  center1: RevenueCenter,
+  center2: RevenueCenter,
   tileCoord: HexCoordinate,
-  tile: TrackTile
+  _tile: TrackTile
 ): HexCoordinate[] {
   // Simplified path finding - in reality, this would be more complex
   // For now, just check if the tile connects the centers directly
