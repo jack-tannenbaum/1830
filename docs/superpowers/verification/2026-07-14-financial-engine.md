@@ -2,8 +2,8 @@
 
 ```
 Plan: docs/superpowers/plans/2026-07-14-financial-engine-repair.md
-Verified SHA: f0c37ce
-Verified at: 2026-07-14T10:09Z
+Verified SHA: 17526c2
+Verified at: 2026-07-14T13:35Z
 ```
 
 ## Automated gate
@@ -12,9 +12,21 @@ Executed inside `1830-web/` at the SHA above.
 
 | Command | Result | Notes |
 | --- | --- | --- |
-| `npm test` | PASS | 6 test files / 14 tests / seven scenarios pass; `setup.scenario`, `auction.scenario`, `stock.scenario`, `corporation-rounds.scenario`, `dispatcher.scenario`, `adapter.scenario`. |
+| `npm test` | PASS | 6 test files / 15 tests / seven milestone scenarios plus the presidency-limit regression pass; `setup.scenario`, `auction.scenario`, `stock.scenario`, `corporation-rounds.scenario`, `dispatcher.scenario`, `adapter.scenario`. |
 | `npm run lint` | PASS | `eslint .` exits 0. Baseline pre-existing failures in map/hex/tile/route/station experiments cleaned up in this milestone. |
-| `npm run build` | PASS | `tsc -b` clean; Vite build produces 64 modules; `dist/assets/index-*.js` ≈ 288 KB (84 KB gzip). |
+| `npm run build` | PASS | `tsc -b` clean; Vite build produces 64 modules; `dist/assets/index-*.js` ≈ 289 KB (85 KB gzip). |
+
+## Post-implementation review
+
+Commit `17526c2` fixes defects found during integrated review:
+
+- private-trade responses now dispatch as the named responder;
+- both buyer- and seller-initiated private trades are reachable, including a
+  legal zero-dollar price;
+- notifications render once rather than twice during an active game;
+- setup displays the correct player-count-dependent starting cash; and
+- purchases that transfer a presidency validate certificate limits after the
+  mandatory certificate exchange. A focused regression test covers this order.
 
 ## Manual walkthrough
 
