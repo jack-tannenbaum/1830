@@ -20,7 +20,7 @@ function App() {
 
   return (
     <>
-      {game === null ? <GameSetup /> : <GameBoard />}
+      {game === null ? <GameSetup onGameStart={() => undefined} /> : <GameBoard />}
       <NotificationPopup />
     </>
   );
