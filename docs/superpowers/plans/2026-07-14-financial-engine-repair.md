@@ -181,6 +181,7 @@ export interface Certificate {
   corporationId: CorporationId;
   percent: 10 | 20;
   isPresident: boolean;
+  saleRestrictedUntilCorporationParred: CorporationId | null;
   location: CertificateLocation;
 }
 
@@ -204,6 +205,7 @@ export interface CorporationState {
   color: string;
   lifecycle: "unstarted" | "parred" | "floatEligible" | "operating";
   parPrice: number | null;
+  // stackIndex 0 is top and operates first; larger indices are lower.
   market: { row: number; column: number; stackIndex: number } | null;
   treasury: number;
 }
@@ -265,11 +267,17 @@ export interface StockTurnState {
   purchaseCount: number;
 }
 
+export interface CertificateLimitCorrection {
+  excessCount: number;
+  active: boolean;
+}
+
 export interface StockRoundState {
   currentActorId: PlayerId;
   consecutivePasses: number;
   turn: StockTurnState;
   soldCorporationIdsByPlayer: Record<PlayerId, CorporationId[]>;
+  certificateLimitCorrectionByPlayer: Record<PlayerId, CertificateLimitCorrection | null>;
   pendingPrivateTrade: PendingPrivateTrade | null;
 }
 
@@ -399,7 +407,7 @@ describe("financial engine scenarios", () => {
 - [ ] **Step 7: Run the test to verify the contract fails before setup exists**
 
 ```bash
-npm test -- --run src/engine/setup.scenario.test.ts
+npm test -- src/engine/setup.scenario.test.ts
 ```
 
 Expected: FAIL because `./setup` does not exist.
@@ -438,6 +446,8 @@ commit before launching Wave 2 so every worker uses identical contracts.
 Create corporation and private seed arrays inside `setup.ts`. Generate nine
 certificates per corporation using stable IDs such as `PRR-president` and
 `PRR-10-1` through `PRR-10-8`. Return fresh records on every call.
+Initialize `saleRestrictedUntilCorporationParred` to `null` on every certificate;
+Task 3 sets it only on the PRR certificate granted by C&A.
 
 ```ts
 export interface CreateGameInput {
@@ -475,7 +485,7 @@ expect(JSON.parse(JSON.stringify(state))).toEqual(state);
 - [ ] **Step 3: Run the setup scenario**
 
 ```bash
-npm test -- --run src/engine/setup.scenario.test.ts
+npm test -- src/engine/setup.scenario.test.ts
 ```
 
 Expected: PASS.
@@ -528,11 +538,14 @@ expect(duplicate).toMatchObject({ ok: false, code: "DUPLICATE_ADVANCE_BID" });
 Scenario 3 must pass every player around SVN at 20, 15, 10, and 5, assert a
 free assignment after the $5 failure, then force an all-pass round on a later
 private and assert private income plus Priority Deal retention/reassignment.
+It must also assert that closing the first auction Stock Round increments
+`roundNumber` and permanently changes `isFirstStockRound` to `false`, even though
+corporation stock was not yet available.
 
 - [ ] **Step 2: Run scenarios 2-3 and verify failure**
 
 ```bash
-npm test -- --run src/engine/auction.scenario.test.ts
+npm test -- src/engine/auction.scenario.test.ts
 ```
 
 Expected: FAIL because `auction.ts` does not exist.
@@ -557,9 +570,21 @@ path:
 7. applies the rules' resume player;
 8. closes/restarts an auction Stock Round with correct Priority Deal.
 
+Every auction-round closure increments `roundNumber`; closure of round one sets
+`isFirstStockRound` to `false`. Do not tie that flag to the sale of the final
+private. Use the shared `payFromBank` from Task 4 for failed-auction private
+income so Bank exhaustion records obligations and the required stop-after-shell
+state instead of making Bank cash negative.
+
+When the final private is resolved and ordinary stock dealing begins, create the
+first `StockRoundState` with a null certificate-limit correction entry for every
+player. Later Stock Rounds do the same after the prior round has proved that no
+correction record remains.
+
 When C&A is first purchased, move the exact designated PRR 10% certificate to
-that buyer. When B&O is purchased, move its president certificate to the buyer,
-set `pendingBOParPlayerId`, and accept no further auction/stock action until that
+that buyer and set its `saleRestrictedUntilCorporationParred` field to `PRR`.
+When B&O is purchased, move its president certificate to the buyer, set
+`pendingBOParPlayerId`, and accept no further auction/stock action until that
 player dispatches `auction.setBOPar` with a legal value. That command places B&O
 on the market without charging again and then completes the auction transition.
 
@@ -568,7 +593,7 @@ Do not call Zustand, `Date.now`, `crypto`, or notification helpers.
 - [ ] **Step 4: Run scenarios 2-3**
 
 ```bash
-npm test -- --run src/engine/auction.scenario.test.ts
+npm test -- src/engine/auction.scenario.test.ts
 ```
 
 Expected: PASS.
@@ -582,12 +607,13 @@ git commit -m "feat: implement private auction rules"
 
 ### Task 4: Implement market and ownership primitives
 
-**Parallel-safe ownership:** `src/engine/market.ts`, `ownership.ts`,
-`invariants.ts`. No scenario-test edits.
+**Parallel-safe ownership:** `src/engine/market.ts`, `ownership.ts`, `ledger.ts`,
+and `invariants.ts`. No scenario-test edits.
 
 **Files:**
 - Create: `1830-web/src/engine/market.ts`
 - Create: `1830-web/src/engine/ownership.ts`
+- Create: `1830-web/src/engine/ledger.ts`
 - Create: `1830-web/src/engine/invariants.ts`
 
 - [ ] **Step 1: Implement ownership selectors**
@@ -619,9 +645,27 @@ export function moveMarketToken(
 
 It follows the existing stock grid, never moves through a null cell, uses the
 rules' edge fallback, and recalculates stack indices so the moving token is below
-every token already in the destination. Add `getMarketPrice` and `getMarketZone`.
+every token already in the destination. Index zero is the top; a moving token
+receives `max(existing stackIndex) + 1`. Add `getMarketPrice` and
+`getMarketZone`.
 
-- [ ] **Step 3: Implement the six critical invariants**
+- [ ] **Step 3: Implement the shared Bank-payment ledger**
+
+```ts
+export function payFromBank(
+  state: GameState,
+  recipient: BankObligation["recipient"],
+  amount: number,
+  reason: BankObligation["reason"],
+): GameState;
+```
+
+Pay `Math.min(state.bankCash, amount)`, credit only that actual cash, record the
+unpaid remainder as a non-spendable obligation, and set `bankBroken` when a
+remainder exists. Stable obligation IDs use state version plus obligation count;
+never use randomness.
+
+- [ ] **Step 4: Implement the six critical invariants**
 
 ```ts
 export function assertGameInvariants(state: GameState): void {
@@ -637,7 +681,7 @@ export function assertGameInvariants(state: GameState): void {
 Each helper throws an `Error` containing the violated invariant and relevant ID.
 Obligations are excluded from actual cash.
 
-- [ ] **Step 4: Verify these modules type-check**
+- [ ] **Step 5: Verify these modules type-check**
 
 ```bash
 npx tsc --noEmit -p tsconfig.app.json
@@ -645,11 +689,11 @@ npx tsc --noEmit -p tsconfig.app.json
 
 Expected: PASS after Wave 2 branches are integrated.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add 1830-web/src/engine/market.ts 1830-web/src/engine/ownership.ts 1830-web/src/engine/invariants.ts
-git commit -m "feat: add market ownership and invariants"
+git add 1830-web/src/engine/market.ts 1830-web/src/engine/ownership.ts 1830-web/src/engine/ledger.ts 1830-web/src/engine/invariants.ts
+git commit -m "feat: add market ownership ledger and invariants"
 ```
 
 ### Task 5: Implement the versioned save codec
@@ -701,7 +745,7 @@ integrated result and merge both. Then:
 
 ```bash
 cd 1830-web
-npm test -- --run src/engine/setup.scenario.test.ts src/engine/auction.scenario.test.ts
+npm test -- src/engine/setup.scenario.test.ts src/engine/auction.scenario.test.ts
 npx tsc --noEmit -p tsconfig.app.json
 ```
 
@@ -724,24 +768,32 @@ and `stock.scenario.test.ts` exclusively.
 
 The test must execute and assert this sequence:
 
-1. start PRR at $67;
-2. finish the purchase turn without counting a pass;
-3. buy an IPO share at par;
-4. in a later round sell an exact 10% certificate and remain current actor;
-5. buy a different corporation after selling;
-6. reject buying the sold corporation;
-7. finish the turn;
-8. buy the exact Pool certificate at market;
-9. propose and accept a $40 private trade during the buyer's turn;
-10. pass every player and assert Priority Deal;
-11. assert every moved token is at the bottom of its destination stack.
+1. in a later Stock Round, reject selling C&A's PRR certificate while PRR is
+   unstarted;
+2. start PRR at $67 and clear that certificate's sale restriction;
+3. finish the purchase turn without counting a pass;
+4. buy an IPO share at par;
+5. sell an exact 10% certificate and remain current actor;
+6. buy a different corporation after selling;
+7. reject buying the sold corporation;
+8. finish the turn;
+9. buy the exact Pool certificate at market;
+10. prove orange stock bypasses the five-certificate corporation limit, yellow
+    stock does not count toward the total limit, and brown stock bypasses both
+    limits and the one-purchase rule;
+11. propose and accept a $40 private trade during the buyer's turn;
+12. pass every player and assert Priority Deal;
+13. create an over-limit presidency-loss correction, finish the current turn,
+    activate it on that player's next turn, reject a pass, sell the excess, and
+    clear the correction;
+14. assert every moved token is at the bottom of its destination stack.
 
 Use exact IDs; never assert against an array position.
 
 - [ ] **Step 2: Verify scenario 4 fails**
 
 ```bash
-npm test -- --run src/engine/stock.scenario.test.ts
+npm test -- src/engine/stock.scenario.test.ts
 ```
 
 Expected: FAIL because `stock.ts` does not exist.
@@ -765,12 +817,23 @@ token, and counts one purchase. Buy reads the certificate's actual location,
 charges par for Initial Offering or market for Pool, and enforces cash, total
 limit, corporation limit, brown-zone count, and buy-after-sale.
 
+Zone enforcement is explicit:
+
+- White and yellow retain the five-certificate corporation limit.
+- Orange removes the per-corporation limit but not the total limit.
+- Yellow certificates do not count toward the total limit.
+- Brown removes buying and holding limits and permits repeated purchases.
+
 - [ ] **Step 5: Implement atomic multi-corporation sales**
 
 Validate every exact certificate, Pool capacity, presidency feasibility, and the
 complete proceeds before changing state. Pay all certificates of a corporation
 at its pre-sale price, then move once per 10%. If any requested certificate is
 illegal, reject the entire command.
+
+Reject a certificate whose `saleRestrictedUntilCorporationParred` corporation
+is still `unstarted`. When that corporation is parred, clear the restriction as
+part of the accepted start command.
 
 - [ ] **Step 6: Implement private trade proposal and response**
 
@@ -784,6 +847,14 @@ rejection clears the proposal without marking a transaction.
 `finishTurn` requires at least one transaction and resets the next player's turn
 substate. `pass` requires none, increments consecutive passes, and either advances
 or calls `completeStockRound` when all players have passed.
+
+When a presidency exchange creates excess certificates, its correction record is
+initially inactive, so the affected player may finish their current turn. At the
+start of that player's next Stock Round turn, activate the record. While an
+active correction has positive `excessCount`, allow only certificate sales and
+reject purchases, private trades, `finishTurn`, and `pass`. Recompute the excess
+after each sale; clear the record at zero, after which the rest of that turn may
+continue normally.
 
 Apply this order in every financial handler:
 
@@ -801,7 +872,7 @@ Round rejects every share sale and every private trade.
 - [ ] **Step 8: Run scenario 4**
 
 ```bash
-npm test -- --run src/engine/stock.scenario.test.ts
+npm test -- src/engine/stock.scenario.test.ts
 ```
 
 Expected: PASS.
@@ -816,11 +887,10 @@ git commit -m "feat: implement stock round transactions"
 ### Task 7: Implement presidency, flotation, capitalization, shell, and Bank break
 
 **Parallel-safe ownership:** `src/engine/corporations.ts`, `rounds.ts`,
-`ledger.ts`, `corporation-rounds.scenario.test.ts`; may run with Task 8.
+and `corporation-rounds.scenario.test.ts`; may run with Task 8.
 
 **Files:**
 - Create: `1830-web/src/engine/corporations.ts`
-- Create: `1830-web/src/engine/ledger.ts`
 - Create: `1830-web/src/engine/rounds.ts`
 - Create: `1830-web/src/engine/corporation-rounds.scenario.test.ts`
 
@@ -828,7 +898,11 @@ git commit -m "feat: implement stock round transactions"
 
 Scenario 5 must transfer a presidency by exchanging one president certificate
 for two exact 10% certificates, preserve both percentages, reach five sold
-certificates/60%, and transfer ten times par only on the first shell entry.
+certificates/60%, and transfer ten times par only on the first shell entry. It
+must leave an over-limit outgoing president in
+`certificateLimitCorrectionByPlayer` as inactive without rejecting the
+presidency transfer. Scenario 4 in Task 6 owns the subsequent Stock Round timing
+and correction behavior.
 
 Scenario 6 must cover a Stock Round with no operating corporation, repeated
 shell cycles, private income, Bank cash reaching zero, an unpaid obligation,
@@ -838,35 +912,24 @@ another Stock Round.
 - [ ] **Step 2: Verify scenarios 5-6 fail**
 
 ```bash
-npm test -- --run src/engine/corporation-rounds.scenario.test.ts
+npm test -- src/engine/corporation-rounds.scenario.test.ts
 ```
 
 Expected: FAIL because corporation/round helpers do not exist.
 
-- [ ] **Step 3: Implement atomic ledger payments**
-
-```ts
-export function payFromBank(
-  state: GameState,
-  recipient: BankObligation["recipient"],
-  amount: number,
-  reason: BankObligation["reason"],
-): GameState;
-```
-
-Pay `Math.min(bankCash, amount)`, credit that actual cash, record the remainder
-as a non-spendable obligation, and set `bankBroken` when a remainder exists.
-Create stable obligation IDs from state version plus obligation count; do not use
-randomness.
-
-- [ ] **Step 4: Implement presidency and flotation helpers**
+- [ ] **Step 3: Implement presidency and flotation helpers**
 
 Export `calculatePresident`, `applyPresidencyTransfer`,
 `updateFloatEligibility`, and `capitalizeCorporation`. Tie selection walks left
 from the outgoing president in `playerOrder`. Capitalization is idempotent and
-uses `payFromBank` exactly once.
+uses Task 4's `payFromBank` exactly once. When an exchange makes the outgoing
+president exceed their total certificate limit, record the exact excess count in
+`certificateLimitCorrectionByPlayer` with `active: false` without rejecting the
+transfer. Task 6's stock-round turn advancement activates an affected player's
+record when that player next becomes the actor; it never activates during the
+turn in which the presidency was lost.
 
-- [ ] **Step 5: Implement round completion and the shell**
+- [ ] **Step 4: Implement round completion and the shell**
 
 Export:
 
@@ -881,19 +944,23 @@ new entrants, pays private income, and skips an empty shell. If `bankBroken`, it
 sets `stopAfterShell`; after the last shell turn—or immediately for an empty
 shell—it enters `milestoneStopped` instead of another Stock Round.
 
-- [ ] **Step 6: Run scenarios 5-6 and all current scenarios**
+For shared market spaces, lower `stackIndex` operates first. A token moved into
+the space receives the largest index and therefore operates last among tokens
+already there.
+
+- [ ] **Step 5: Run scenarios 5-6 and all current scenarios**
 
 ```bash
-npm test -- --run src/engine/corporation-rounds.scenario.test.ts
+npm test -- src/engine/corporation-rounds.scenario.test.ts
 npm test
 ```
 
 Expected: scenarios 1-6 PASS.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add 1830-web/src/engine/corporations.ts 1830-web/src/engine/ledger.ts 1830-web/src/engine/rounds.ts 1830-web/src/engine/corporation-rounds.scenario.test.ts
+git add 1830-web/src/engine/corporations.ts 1830-web/src/engine/rounds.ts 1830-web/src/engine/corporation-rounds.scenario.test.ts
 git commit -m "feat: add presidency flotation and round shell"
 ```
 
@@ -1046,7 +1113,7 @@ without replacing live state.
 - [ ] **Step 2: Verify scenario 7 fails**
 
 ```bash
-npm test -- --run src/engine/adapter.scenario.test.ts
+npm test -- src/engine/adapter.scenario.test.ts
 ```
 
 Expected: FAIL because the adapter does not exist.
@@ -1141,7 +1208,7 @@ stub, so it does not depend on a browser global.
 - [ ] **Step 6: Run scenario 7 and all scenarios**
 
 ```bash
-npm test -- --run src/engine/adapter.scenario.test.ts
+npm test -- src/engine/adapter.scenario.test.ts
 npm test
 ```
 
@@ -1194,13 +1261,15 @@ Render `getAuctionView(game)`. Buy, bid, raise, and pass buttons dispatch exact
 commands with the current game version. Render locked money and bid-off actor
 from the view; do not recompute legality in the component.
 
-- [ ] **Step 3: Run TypeScript on owned components**
+- [ ] **Step 3: Lint owned files**
 
 ```bash
-npx tsc --noEmit -p tsconfig.app.json
+npx eslint src/components/GameSetup.tsx src/components/PrivateAuction.tsx src/components/AuctionSummary.tsx
 ```
 
-Expected: no errors from these three files.
+Expected: exit 0 for these three files. Full-project type-checking is deferred to
+the Wave 5 integration gate because parallel sibling branches are still being
+migrated.
 
 - [ ] **Step 4: Commit**
 
@@ -1241,13 +1310,14 @@ Delete the hard-coded `isFirstStockRound`, direct `setGameState`, B&O par mutati
 and global action-history legality checks. Par selection dispatches
 `stock.startCorporation`.
 
-- [ ] **Step 5: Type-check owned files**
+- [ ] **Step 5: Lint owned files**
 
 ```bash
-npx tsc --noEmit -p tsconfig.app.json
+npx eslint src/components/StockRound.tsx src/components/PrivateTradeDialog.tsx
 ```
 
-Expected: no errors from `StockRound.tsx` or `PrivateTradeDialog.tsx`.
+Expected: exit 0 for the two owned files. Full-project type-checking is deferred
+to the Wave 5 integration gate.
 
 - [ ] **Step 6: Commit**
 
@@ -1295,13 +1365,14 @@ winner.
 uses adapter `newGame` to clear it. Invalid/legacy data shows a dismissible error
 without entering the board.
 
-- [ ] **Step 5: Type-check owned files**
+- [ ] **Step 5: Lint owned files**
 
 ```bash
-npx tsc --noEmit -p tsconfig.app.json
+npx eslint src/components/GameBoard.tsx src/components/StockMarketDisplay.tsx src/components/NotificationPopup.tsx src/components/OperatingShell.tsx src/components/MilestoneStoppedPanel.tsx src/App.tsx
 ```
 
-Expected: no errors from Task 13 files.
+Expected: exit 0 for the owned files. Full-project type-checking is deferred to
+the Wave 5 integration gate.
 
 - [ ] **Step 6: Commit**
 
@@ -1318,10 +1389,11 @@ back into components. Then:
 ```bash
 cd 1830-web
 npm test
+npx tsc --noEmit -p tsconfig.app.json
 npm run build
 ```
 
-Expected: seven scenarios PASS and production build PASS.
+Expected: seven scenarios PASS, TypeScript PASS, and production build PASS.
 
 ---
 
