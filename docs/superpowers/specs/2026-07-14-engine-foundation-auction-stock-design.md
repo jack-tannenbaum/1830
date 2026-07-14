@@ -25,26 +25,37 @@ engine boundary.
 
 ## 2. Authoritative rules and fixed decisions
 
-The project owner's pasted BoardGameGeek rules are the sole rules authority for
-this milestone. Other PDFs, editions, current code, comments, and UI behavior do
-not override them.
+The exact BoardGameGeek rules text saved by the project owner at
+[`docs/rules/1830-rules-authoritative.md`](../../rules/1830-rules-authoritative.md)
+is the sole rules authority for this milestone. Other PDFs, editions, current
+code, comments, and UI behavior do not override it.
 
-Numerical rules used by this design are:
+The pasted text references Tables 3 and 5 without reproducing them. The following
+standard table values are therefore explicit project decisions, not claims about
+text present in the saved rules:
 
 - Total game cash: $12,000.
-- Cash distributed at setup: $2,400 total.
-- Starting cash: $800 with 3 players, $600 with 4, $480 with 5, and $400 with 6.
 - Initial Bank cash after distribution: $9,600.
 - Total certificate limits: 20 with 3 players, 16 with 4, 13 with 5, and 11 with
   6.
+
+The following values appear directly in the saved text:
+
+- Cash distributed at setup: $2,400 total.
+- Starting cash derived from equal distribution: $800 with 3 players, $600 with
+  4, $480 with 5, and $400 with 6.
 - Normal per-corporation holding limit: five certificates.
 - Bank Pool maximum: 50% of a corporation.
 - Corporation flotation threshold: five sold certificates representing 60%.
 - Legal par values: $67, $71, $76, $82, $90, and $100.
 
-If an implementation detail remains ambiguous after consulting the saved rules,
-work stops for an explicit product decision rather than silently choosing an
-alternate edition's behavior.
+One additional sequencing decision fills a rules-text gap: before Priority Deal
+is first formally awarded, the lowest place-card player is treated as its holder
+so a transaction-free opening auction round can retain a defined starter.
+
+If any other implementation detail remains ambiguous after consulting the saved
+text, work stops for an explicit product decision rather than silently choosing
+an alternate edition's behavior.
 
 ## 3. Goals
 
@@ -75,7 +86,9 @@ This milestone does not implement:
 - Train revenue, dividends, or withholding.
 - Train ownership, purchases, rusting, limits, or phase events.
 - Forced train purchases or bankruptcy.
-- Bank-exhaustion endgame or final scoring.
+- Final scoring. This milestone detects Bank exhaustion, records unpaid Bank
+  obligations, completes the current round sequence, and stops; it does not
+  calculate a winner.
 - Network transport, accounts, lobbies, invitations, reconnection, spectators,
   clocks, host controls, or cheating prevention.
 - Migration or repair of legacy browser saves.
@@ -143,6 +156,9 @@ The initial command set includes:
 - `stock.startCorporation`
 - `stock.buyCertificate`
 - `stock.sellCertificates`
+- `stock.proposePrivateTrade`
+- `stock.respondPrivateTrade`
+- `stock.finishTurn`
 - `stock.pass`
 - `operatingShell.endCorporationTurn`
 
@@ -255,6 +271,7 @@ Every accepted monetary action is represented as balanced transfers among:
 - Player cash.
 - Corporation treasury cash.
 - Auction bid locks by player and private company.
+- Unpaid Bank obligations owed to players or corporations after Bank exhaustion.
 
 Locked money remains part of its player's wealth but is unavailable for other
 purchases. Replacing or resolving a bid releases or consumes exactly the
@@ -263,7 +280,13 @@ relevant lock.
 The sum of Bank cash, player cash, corporation treasury cash, and any other
 future cash-holding entity must always equal $12,000. Bid locks are availability
 constraints, not additional money, and therefore are not added again to the
-conservation total.
+conservation total. Unpaid Bank obligations are claims, not cash, and are also
+excluded from the conservation total and from spendable balances.
+
+When the Bank cannot fully meet an in-scope payment, it pays its remaining cash,
+records the unpaid remainder as an obligation to the recipient, and marks the
+Bank broken. The recipient cannot spend the recorded obligation. Round completion
+then follows section 12.2.
 
 ### 6.5 Corporation lifecycle
 
@@ -291,15 +314,19 @@ Round state records:
 - Round type and sequential number.
 - Whether this is the first Stock Round.
 - Current actor.
+- Current Stock Round turn substate: transactions performed, purchase count,
+  pending private trade, and whether the actor may still buy or sell.
 - Consecutive pass count.
 - Last player to complete a transaction.
-- Priority Deal holder, which is unset until the first Stock Round ends.
+- Priority Deal holder, initialized to the lowest place-card player and updated
+  whenever any Stock Round ends.
 - Per-player corporations sold in the current Stock Round.
 - Per-turn purchase count and brown-zone exception state.
 - Current private offering.
 - Advance bids and locks.
 - Active contested auction, standing bid, and eligible bidders.
 - Operating Round shell number and active corporation.
+- Whether the Bank is broken and the round sequence after which play must stop.
 
 The round state must always identify one legal actor when player input is
 required. Automatic transitions continue until the engine reaches an input
@@ -336,17 +363,22 @@ Expected rule rejections include stable codes such as:
 - `ACTION_NOT_ALLOWED_IN_ROUND`
 - `INSUFFICIENT_AVAILABLE_CASH`
 - `BID_INCREMENT_TOO_SMALL`
+- `DUPLICATE_ADVANCE_BID`
 - `CERTIFICATE_LIMIT_EXCEEDED`
 - `CORPORATION_HOLDING_LIMIT_EXCEEDED`
 - `POOL_LIMIT_EXCEEDED`
 - `PRESIDENCY_CANNOT_TRANSFER`
 - `CANNOT_BUY_AFTER_SELLING`
+- `STOCK_TURN_ALREADY_COMPLETE`
+- `PRIVATE_TRADE_NOT_PERMITTED`
 - `INVALID_PAR_PRICE`
 
 Domain events describe accepted facts for UI messaging and future multiplayer
 broadcasting. Examples are `PrivatePurchased`, `BidPlaced`, `CorporationParred`,
 `CertificatePurchased`, `CertificatesSold`, `PresidentChanged`,
-`CorporationBecameFloatEligible`, `CorporationCapitalized`, and `RoundStarted`.
+`PrivateTradeProposed`, `PrivateTraded`, `CorporationBecameFloatEligible`,
+`CorporationCapitalized`, `BankBroken`, `BankObligationRecorded`, and
+`RoundStarted`.
 
 Rule rejections do not alter state or create undo history. Violated internal
 invariants are programming faults, not rule rejections. Development builds fail
@@ -389,10 +421,9 @@ Setup must:
    authoritative.
 6. Put every private company in the Bank.
 7. Start the private auction with the lowest place-card player.
-8. Leave Priority Deal unset during the first Stock Round. After the private
-   auction completes, ordinary stock dealing begins with the player left of the
-   last private purchaser. The first Priority Deal holder is assigned only when
-   that Stock Round ends.
+8. Initialize Priority Deal to the lowest place-card player so a transaction-free
+   initial auction round has a holder who can retain it. Priority Deal determines
+   the first player of each newly started Stock Round.
 
 ## 10. Private auction behavior
 
@@ -407,6 +438,9 @@ turn the current player may:
 
 Advance bids must exceed face value or the existing high bid by at least $5.
 The bidder must have sufficient available cash after all other locks.
+A player may have only one advance bid on a given private. A second attempt is
+rejected with `DUPLICATE_ADVANCE_BID`, implementing the rule that bidding twice
+on the same company provides no benefit.
 
 ### 10.2 Resolving advance bids
 
@@ -428,7 +462,9 @@ rules.
 
 If every player passes while SVN remains unsold:
 
-- Start a new auction pass around.
+- End the current Stock Round and retain Priority Deal because it contained no
+  transaction.
+- Start a new Stock Round with the Priority Deal holder.
 - Reduce only SVN's offered price by $5.
 - Never reduce another private's price.
 - If no player buys SVN at $5, give it free to the first player offered it at
@@ -437,9 +473,14 @@ If every player passes while SVN remains unsold:
 If SVN has sold and a complete pass around does not sell the currently offered
 private:
 
-- End that Stock Round.
+- End that Stock Round in the usual way. Give Priority Deal to the player left
+  of the last player who completed a private purchase; placing an unresolved bid
+  alone does not count as buying. If that Stock Round contained no purchase,
+  retain the existing holder.
 - Pay income from every owned private company from the Bank.
-- Begin a new private-auction Stock Round with the correct player.
+- If the Bank remains solvent, begin a new private-auction Stock Round with the
+  Priority Deal holder. If that income breaks the Bank, complete the required
+  shell and stop under section 12.2 instead.
 
 ### 10.4 Completion and special setup effects
 
@@ -458,6 +499,10 @@ When the auction completes:
 Other private abilities are stored as data but do not produce operating actions
 in this milestone.
 
+Ordinary stock dealing continues within the same Stock Round after the final
+private purchase, beginning with the player to the left of the final private
+purchaser. Priority Deal is reassigned only when that Stock Round actually ends.
+
 ## 11. Stock Round behavior
 
 ### 11.1 Turns and passes
@@ -473,6 +518,20 @@ buy the permitted number of certificates in either order, or pass.
 - Passing does not remove a player from the round.
 - The round ends after all players pass consecutively.
 - Any purchase or sale resets the consecutive-pass count.
+
+Buying and selling commands do not advance the current player. They update the
+current turn substate and leave that player active so legal actions can occur in
+either order. After one or more transactions, `stock.finishTurn` advances to the
+next player and leaves the consecutive-pass count at zero. `stock.pass` is legal
+only when the player has performed no transaction during the current turn; it
+increments the consecutive-pass count and advances. This distinguishes a
+sale-only or purchase-only turn from a pass.
+
+The normal one-certificate purchase limit is tracked across the complete turn.
+When the purchased corporation is in the brown zone, additional available brown-
+zone certificates may be bought through further commands before
+`stock.finishTurn`. Buying a corporation's president certificate through
+`stock.startCorporation` counts as that turn's purchase.
 
 At round end, Priority Deal goes to the player left of the last player who
 bought or sold. If nobody transacted, the existing holder retains it.
@@ -507,9 +566,13 @@ setup path, without charging again for the automatically granted certificate.
 - Sales identify exact certificate IDs.
 - All certificates in one corporation's sale pay the market value displayed
   before any downward movement from that sale.
-- Player cash increases and Bank cash decreases by the same amount.
+- Player cash increases and Bank cash decreases by the same amount while the
+  Bank can pay. If it cannot, transfer the Bank's remaining cash and record the
+  unpaid sale proceeds under section 12.2.
 - Each sold 10% moves the corporation token exactly one row straight down,
   stopping at the bottom row.
+- After every individual downward move, a token entering an occupied market
+  space is placed beneath all tokens already there.
 - The Bank Pool may not exceed 50%.
 - A president certificate never enters the Pool.
 - A sale that would require an impossible presidency transfer is rejected
@@ -521,7 +584,25 @@ certificate or resulting presidency transfer is illegal, none of the sale is
 applied. Price movement is calculated independently for each affected
 corporation after the seller's proceeds are fixed.
 
-### 11.5 Presidency
+### 11.5 Player-to-player private trades
+
+Except during the first Stock Round, a private company may be sold between
+players for any mutually agreed nonnegative whole-dollar price during either the
+buyer's or seller's Stock Round turn.
+
+The active turn owner submits `stock.proposePrivateTrade` with the private,
+buyer, seller, and price. The proposal is legal only when the active player is
+the buyer or seller. The turn pauses while the other party submits
+`stock.respondPrivateTrade` to accept or reject it. Acceptance atomically
+transfers exact ownership and cash; rejection changes no financial state. The
+active turn owner remains the Stock Round actor after either response.
+
+An accepted trade is a transaction: it resets consecutive passes, makes
+`stock.pass` unavailable for the current turn, and makes the active turn owner
+the last transaction actor for Priority Deal. A rejected proposal is not a
+transaction. Private companies cannot enter the Bank Pool.
+
+### 11.6 Presidency
 
 Presidency is held by the 20% certificate owner. Another player becomes
 president only when their percentage strictly exceeds the incumbent's.
@@ -538,7 +619,7 @@ On transfer:
 The entire exchange, associated sale, limit state, and event list are one
 accepted transition.
 
-### 11.6 Certificate limits and market zones
+### 11.7 Certificate limits and market zones
 
 Total certificate counts include open player-owned private companies. Market
 zones apply as follows:
@@ -552,7 +633,7 @@ A presidency change may temporarily place the outgoing president over the total
 limit; round state records the obligation, and the player must correct it on
 their next Stock Round turn before any other purchase or pass.
 
-### 11.7 Flotation and end-of-round movement
+### 11.8 Flotation and end-of-round movement
 
 When five certificates representing 60% have been sold by the Bank, the
 corporation becomes `floatEligible`. B&O, C&A, and later M&H granted shares count
@@ -560,12 +641,16 @@ as sales where required by the rules. Pool sales do not reverse eligibility.
 
 At Stock Round end, a corporation moves one row upward if no certificate remains
 in its Initial Offering or the Pool. Unstarted corporations otherwise move only
-downward due to Pool sales.
+downward due to Pool sales. Every upward move also places the moving token beneath
+all tokens already in its destination. The same bottom-stacking rule is a shared
+market operation and applies to every future direction of movement.
 
 ## 12. Temporary Operating Round shell
 
 This milestone uses a deliberate shell so repeated Stock Rounds can be tested
 without pretending train and map operations exist.
+
+### 12.1 Shell behavior and limitation
 
 At Stock Round end:
 
@@ -578,15 +663,47 @@ At Stock Round end:
    topmost token in a shared space.
 5. Present the active corporation and allow only
    `operatingShell.endCorporationTurn`.
-6. After every corporation has ended its turn, begin the next Stock Round with
-   the Priority Deal holder.
+6. After every corporation has ended its turn, either begin the next Stock Round
+   with the Priority Deal holder or stop under section 12.2.
 
-If no corporation is eligible to operate, skip the shell without deadlocking
-and immediately start the next Stock Round.
+If no corporation is eligible to operate, complete the shell immediately without
+deadlocking. Start the next Stock Round only if section 12.2 does not require the
+milestone to stop.
 
 The shell must be visibly labeled as incomplete. Track, tokens, routes,
 dividends, and train controls must be hidden or disabled rather than falsely
 appearing functional.
+
+The shell is an integration harness, not a rules-correct simulation of railroad
+operations. In particular it does not enforce train ownership, generate train
+revenue, choose dividends, or apply the leftward market movement for an operating
+corporation that pays no dividend. Therefore Stock Round rules are enforced
+correctly against the resulting test state, but game strategy and market state
+after a shell Operating Round do not represent a legal full game of 1830. The UI
+and acceptance criteria must state this limitation rather than describing the
+milestone as playable through normal operations.
+
+### 12.2 Bank exhaustion within the milestone
+
+Bank exhaustion is detected during every payment, including private income,
+stock sales, and corporation capitalization.
+
+- The Bank pays any remaining cash and records the unpaid remainder as an
+  obligation to the intended player or corporation.
+- Obligations are public, non-spendable claims retained for later final scoring.
+- If the Bank breaks during a Stock Round, finish that Stock Round and its one
+  following shell Operating Round.
+- If it breaks during the shell, finish every remaining corporation turn in that
+  shell.
+- At the point where the next Stock Round would begin, transition to a
+  `milestoneStopped` state with reason `bankExhausted` instead.
+- If the required shell contains no operating corporation, it completes
+  immediately and the milestone stops.
+
+This preserves the pasted rules' round timing and prevents negative cash without
+implementing final scoring or winner determination. The stopped state displays
+recorded obligations and explains that completed endgame scoring belongs to a
+later milestone.
 
 ## 13. Persistence and undo
 
@@ -649,19 +766,22 @@ milestone. Add Vitest and these seven scenario tests:
 
 1. Setup across supported player counts and Bank distribution.
 2. Private auction covering normal purchase, advance bid, pass, locked cash,
-   single-bid resolution, and contested resolution.
-3. SVN all-pass price reduction and free assignment after failure at $5.
-4. Stock Round covering par, IPO purchase, Pool sale, Pool purchase, market
-   movement, pass reset, and Priority Deal.
+   duplicate-bid rejection, single-bid resolution, and contested resolution.
+3. SVN and later-private all-pass rounds covering price reduction, free
+   assignment after failure at $5, private income, and Priority Deal retention or
+   reassignment.
+4. Stock Round covering multi-action turn completion, par, IPO purchase, Pool
+   sale, Pool purchase, private trade consent, market movement and stacking,
+   pass reset, and Priority Deal.
 5. Presidency transfer plus flotation eligibility and first-operation
    capitalization.
 6. Repeated Stock Round and Operating Round shell cycles, including no operating
-   corporations.
+   corporations, Bank exhaustion, obligations, and the required stop point.
 7. Save, reload, continue, accepted-command undo, and rejected-command no-op.
 
 A shared invariant checker runs after every accepted command in these scenarios:
 
-- Total cash remains $12,000.
+- Total actual cash remains $12,000; unpaid obligations are not counted as cash.
 - Every certificate has exactly one valid location.
 - Each corporation's certificates total 100%.
 - President certificates never occupy the Bank Pool.
@@ -673,7 +793,9 @@ matrix, coverage target, property-testing suite, or browser end-to-end suite in
 this milestone.
 
 Acceptance also requires TypeScript compilation, linting, a production build,
-and one manual pass-and-play walkthrough through multiple Stock Rounds.
+and one manual integration walkthrough through multiple Stock Rounds. That
+walkthrough verifies the financial engine and shell transitions, not legal
+railroad operations or a complete playable game.
 
 ## 16. Delivery sequence
 
@@ -699,30 +821,40 @@ The milestone is complete when:
 
 1. A three-to-six-player local game starts with correct player and Bank cash.
 2. Every private auction path in scope resolves without duplicated ownership,
-   stale locks, or incorrect Bank cash.
+   stale locks, duplicate bids, incorrect Priority Deal, or incorrect Bank cash.
 3. Corporation stock remains unavailable until every private has an owner.
 4. First Stock Round sales are prohibited and later sales are enabled.
 5. IPO and Pool buys remove the requested exact certificate and charge the
    correct price.
-6. Stock sales pay the pre-movement value and move the market exactly once per
-   10% sold.
-7. Certificate limits, zones, Pool limits, and buy-after-sale restrictions are
+6. A player can sell then buy, buy then sell, perform a sale-only or purchase-only
+   turn, buy multiple brown-zone shares, or pass, with exactly one explicit turn
+   completion and correct consecutive-pass behavior.
+7. Later Stock Rounds support mutually accepted player-to-player private trades
+   during either party's turn.
+8. Stock sales pay the pre-movement value and move the market exactly once per
+   10% sold; every market move places the moving token beneath existing tokens.
+9. Certificate limits, zones, Pool limits, and buy-after-sale restrictions are
    enforced per the authoritative rules.
-8. Presidency changes preserve percentages and keep the president certificate
+10. Presidency changes preserve percentages and keep the president certificate
    out of the Pool.
-9. Float eligibility survives later Pool sales, and full capitalization occurs
+11. Float eligibility survives later Pool sales, and full capitalization occurs
    once at the corporation's first shell Operating Round.
-10. Stock Round completion assigns Priority Deal correctly and never deadlocks
+12. Every Stock Round completion, including failed private-auction rounds,
+    assigns or retains Priority Deal correctly and never deadlocks
     when no corporation operates.
-11. Private income is paid once per shell Operating Round.
-12. Undo restores the complete prior accepted state.
-13. Legacy or invalid saves are rejected without modifying the live game.
-14. All accepted states satisfy the six critical invariants.
-15. The seven approved scenarios, TypeScript build, lint, and production build
+13. Private income is paid once per shell Operating Round.
+14. Bank exhaustion records non-spendable obligations, completes the required
+    round sequence, and stops before another Stock Round without negative cash.
+15. Undo restores the complete prior accepted state.
+16. Legacy or invalid saves are rejected without modifying the live game.
+17. All accepted states satisfy the six critical invariants.
+18. The seven approved scenarios, TypeScript build, lint, and production build
     pass.
-16. The UI remains visually recognizable and exposes no apparently functional
+19. The UI remains visually recognizable and exposes no apparently functional
     operating actions that are still placeholders.
-17. The engine is independent of React, Zustand, browser APIs, and wall-clock
+20. The shell is visibly identified as an integration harness whose post-
+    operation market state is not a legal full-game simulation.
+21. The engine is independent of React, Zustand, browser APIs, and wall-clock
     time, and its public protocol is serializable and versioned.
 
 ## 18. Deferred follow-up specifications
@@ -734,7 +866,7 @@ After this milestone, separate design and implementation cycles should cover:
    operations.
 3. Train depot, train trading, rusting, phases, private closure, and Operating
    Round counts.
-4. Forced train purchases, emergency financing, bankruptcy, Bank exhaustion,
-   final scoring, and completed game flow.
+4. Forced train purchases, emergency financing, bankruptcy, completed
+   Bank-exhaustion scoring, final scoring, and completed game flow.
 5. Network multiplayer transport and product behavior using the command engine
    established here.
