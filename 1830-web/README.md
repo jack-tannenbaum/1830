@@ -1,69 +1,22 @@
-# React + TypeScript + Vite
+# 1830 Financial Engine Prototype
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A prototype financial engine and integration harness for the board game *1830*, built as a React + TypeScript + Vite application.
 
-Currently, two official plugins are available:
+## Commands
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- `npm ci` — install dependencies.
+- `npm run dev` — start the Vite development server.
+- `npm test` — run the vitest scenario suite (the seven engine scenarios plus the dispatcher and adapter tests).
+- `npm run lint` — run ESLint over the project.
+- `npm run build` — run `tsc -b && vite build`.
 
-## Expanding the ESLint configuration
+## Scope
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Setup, private auctions, and Stock Rounds are implemented and rule-authoritative.
+- The Operating Round is an integration harness only — trains, routes, dividends, and legal operating market movement are not implemented.
+- Legacy saves (schemaVersion !== 2, engineVersion !== "financial-core-v1") are unsupported and rejected by the adapter.
+- Network multiplayer is not implemented.
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Architecture
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+The engine lives as pure TypeScript modules under `src/engine/`, driven by immutable state and dispatched commands. A thin Zustand adapter in `src/store/gameStore.ts` bridges the engine into the UI, exposing selectors and command dispatchers. React components in `src/components/` consume those selectors and dispatch commands — they hold no rule logic of their own. See the plan file at `docs/superpowers/plans/2026-07-14-financial-engine-repair.md` for the full repair scope and milestone context.
