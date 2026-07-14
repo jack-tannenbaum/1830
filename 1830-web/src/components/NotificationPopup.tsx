@@ -1,102 +1,47 @@
-import React, { useEffect, useState } from 'react';
-import { useColors } from '../styles/colors';
+import { useGameStore } from '../store/gameStore';
 
-export type NotificationType = 'bid' | 'purchase' | 'info' | 'warning' | 'success';
+const LEVEL_STYLES = {
+  info: 'bg-blue-100 border-blue-500 text-blue-900 dark:bg-blue-900 dark:text-blue-100',
+  success: 'bg-green-100 border-green-500 text-green-900 dark:bg-green-900 dark:text-green-100',
+  warning: 'bg-yellow-100 border-yellow-500 text-yellow-900 dark:bg-yellow-900 dark:text-yellow-100',
+  error: 'bg-red-100 border-red-500 text-red-900 dark:bg-red-900 dark:text-red-100',
+} as const;
 
-interface NotificationPopupProps {
-  id: string;
-  title: string;
-  message: string;
-  type: NotificationType;
-  onClose: () => void;
-  index: number; // Position in the stack
-  duration?: number; // Auto-close duration in ms
-}
+export function NotificationPopup() {
+  const notifications = useGameStore((state) => state.notifications);
+  const dismissNotification = useGameStore((state) => state.dismissNotification);
 
-export const NotificationPopup: React.FC<NotificationPopupProps> = ({ 
-  title, 
-  message, 
-  type,
-  onClose,
-  index,
-  duration = 4000
-}) => {
-  const colors = useColors();
-  const [isVisible, setIsVisible] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    // Mount the component first
-    setIsMounted(true);
-    
-    // Then slide in and fade in
-    const entranceTimer = setTimeout(() => {
-      setIsVisible(true);
-    }, 100);
-    
-    // Auto-remove after duration
-    const exitTimer = setTimeout(() => {
-      setIsVisible(false);
-      // Wait for fade-out animation to complete
-      setTimeout(() => {
-        onClose();
-      }, 500);
-    }, duration);
-
-    return () => {
-      clearTimeout(entranceTimer);
-      clearTimeout(exitTimer);
-    };
-  }, [onClose, duration]);
-
-           const getNotificationColors = () => {
-           switch (type) {
-             case 'bid': return colors.notification.bid;
-             case 'purchase': return colors.notification.purchase;
-             case 'warning': return colors.notification.warning;
-             case 'info': return colors.notification.info;
-             default: return colors.notification.info;
-           }
-         };
-
-         const notificationColors = getNotificationColors();
+  if (notifications.length === 0) {
+    return null;
+  }
 
   return (
-    <div 
-      className={`fixed transition-all duration-500 ease-out z-50 ${
-        isMounted ? 'translate-y-0' : 'translate-y-full'
-      } ${
-        isVisible ? 'opacity-100' : 'opacity-0'
-      }`}
-      style={{ 
-        bottom: `${20 + (index * 80)}px`, // Stack from bottom right, 80px apart
+    <div
+      className="fixed z-50 flex flex-col gap-2"
+      style={{
+        bottom: '20px',
         right: '20px',
         width: '400px',
-        maxWidth: 'calc(100vw - 40px)', // Ensure it doesn't overflow the viewport
-        position: 'fixed' // Explicitly set position
+        maxWidth: 'calc(100vw - 40px)',
       }}
     >
-                   <div className={`rounded-lg shadow-lg border-l-4 p-4 ${notificationColors.background} ${notificationColors.border}`}>
-               <div className="flex items-center justify-between">
-                 <div>
-                   <div className={`font-semibold text-lg ${notificationColors.title}`}>
-                     {title}
-                   </div>
-                   <div className={`text-sm ${notificationColors.text}`}>
-                     {message}
-                   </div>
-                 </div>
-          <button 
-            onClick={() => {
-              setIsVisible(false);
-              setTimeout(() => onClose(), 300);
-            }}
-            className={`transition-colors ${colors.text.tertiary} hover:${colors.text.secondary}`}
+      {notifications.map((notification) => (
+        <div
+          key={notification.id}
+          role="status"
+          className={`flex items-start justify-between rounded-lg border-l-4 shadow-lg p-4 ${LEVEL_STYLES[notification.type]}`}
+        >
+          <div className="text-sm flex-1 pr-2 break-words">{notification.message}</div>
+          <button
+            type="button"
+            onClick={() => dismissNotification(notification.id)}
+            aria-label="Dismiss notification"
+            className="ml-2 text-lg leading-none opacity-70 hover:opacity-100"
           >
             ×
           </button>
         </div>
-      </div>
+      ))}
     </div>
   );
-};
+}
