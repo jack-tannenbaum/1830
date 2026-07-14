@@ -50,9 +50,135 @@ fill only the missing Table 3/Table 5 values and initial Priority Deal gap.
 | 1 | Task 1 | Wave 0 | Engine contracts and test harness compile |
 | 2 | Tasks 2 and 4, then Tasks 3 and 5 | Wave 1 | Setup/market foundations feed auction and save codec |
 | 3 | Tasks 7 and 8, then Task 6 | Wave 2 | Corporation/round primitives and selectors feed the Stock reducer |
-| 4 | Task 9, then Task 10 | Wave 3 | Dispatcher and Zustand adapter pass engine scenarios |
-| 5 | Tasks 11, 12, 13 | Wave 4 | Setup, auction, stock, and shell UI build together |
-| 6 | Task 14, then Task 15 | Wave 5 | Legacy removal, full verification, manual walkthrough |
+| 4 | Two dispatcher lanes, then four adapter lanes | Wave 3 | Dispatcher and Zustand adapter pass engine scenarios |
+| 5 | Seven UI lanes | Wave 4 | Setup, auction, stock, and shell UI build together |
+| 6 | Four cleanup/documentation lanes, then final verification | Wave 5 | Legacy removal, full verification, manual walkthrough |
+
+---
+
+## Revised eight-thread execution schedule for the remaining waves
+
+This schedule supersedes the older launch grouping and file-ownership paragraphs
+for Waves 4-6. It is designed for `agents.max_threads = 8`: one root integrator
+and as many as seven implementation subagents. The behavioral requirements and
+verification steps in Tasks 9-15 remain authoritative.
+
+Every lane starts from the preceding integration-gate commit, owns only the files
+listed below, and produces one commit. The root integrator cherry-picks commits
+in lane order, resolves imports without moving rule logic into React, and runs
+the gate before starting the next stage. Idle slots are acceptable when a hard
+dependency prevents useful implementation work.
+
+### Wave 4A — Dispatcher, two parallel lanes
+
+1. **W4A-1 Dispatcher implementation**
+   - Own: `1830-web/src/engine/executeCommand.ts`
+   - Implement Task 9's command routing, game/version validation, duplicate-ID
+     idempotency, accepted-command version increments, and invariant checks.
+   - Duplicate command detection runs before the version-conflict check so a
+     retry of an accepted command returns `DUPLICATE_COMMAND`.
+2. **W4A-2 Dispatcher scenario**
+   - Own: `1830-web/src/engine/dispatcher.scenario.test.ts`
+   - Implement Task 9's stale-version, duplicate-command, wrong-game, and
+     successful-dispatch scenario against the published dispatcher API.
+
+Merge W4A-1 then W4A-2 and run Task 9's full gate.
+
+### Wave 4B — Browser adapter, four parallel lanes
+
+Before launching, the root integrator adds and commits these adapter contracts to
+`src/engine/adapter-contracts.ts`: storage port, notification shape, adapter
+snapshot shape, and public store action signatures. Workers import that contract
+and do not create alternatives.
+
+1. **W4B-1 Persistence port**
+   - Own: `1830-web/src/engine/storage.ts`
+   - Implement versioned save/load/clear around Task 5's codec and injected
+     storage; never access browser globals at module initialization.
+2. **W4B-2 Notification projection**
+   - Own: `1830-web/src/engine/notifications.ts`
+   - Convert domain events and rejected results into stable serializable UI
+     notifications, including dismissal by ID.
+3. **W4B-3 Zustand adapter**
+   - Own: `1830-web/src/store/gameStore.ts`
+   - Implement Task 10's thin store using the committed contracts, dispatcher,
+     storage port, snapshot undo, and notification projection. It must expose
+     selector-compatible actions; components never use a hidden `.getState()`.
+4. **W4B-4 Adapter scenario**
+   - Own: `1830-web/src/engine/adapter.scenario.test.ts`
+   - Implement Task 10's dispatch, undo, reload, invalid-save, and fresh-game
+     scenarios using an injected in-memory storage stub.
+
+Merge W4B-1, W4B-2, W4B-3, then W4B-4. Run all seven scenarios, TypeScript, and
+the Wave 4 build gate. Fix contract integration centrally before Wave 5.
+
+### Wave 5 — UI migration, seven parallel lanes
+
+All lanes consume selectors and adapter actions only. No component may calculate
+rule legality, mutate canonical state, or access the store through `.getState()`.
+
+1. **W5-1 Setup**
+   - Own: `1830-web/src/components/GameSetup.tsx`
+   - Dispatch `game.create`; retain existing visual controls.
+2. **W5-2 Private auction**
+   - Own: `1830-web/src/components/PrivateAuction.tsx`
+   - Render the auction view and dispatch exact auction commands.
+3. **W5-3 Auction/market displays**
+   - Own: `1830-web/src/components/AuctionSummary.tsx`,
+     `1830-web/src/components/StockMarketDisplay.tsx`
+   - Render selector data only; preserve stable market stack order.
+4. **W5-4 Stock Round**
+   - Own: `1830-web/src/components/StockRound.tsx`
+   - Render exact-certificate actions, explicit Finish Turn/Pass, and the pending
+     trade entry point; remove every debug override and direct mutation.
+5. **W5-5 Private trade dialog**
+   - Own: `1830-web/src/components/PrivateTradeDialog.tsx`
+   - Implement proposal and responder confirmation against adapter actions.
+6. **W5-6 Board and operating shell**
+   - Own: `1830-web/src/components/GameBoard.tsx`,
+     `1830-web/src/components/OperatingShell.tsx`,
+     `1830-web/src/components/MilestoneStoppedPanel.tsx`
+   - Route canonical rounds and show the explicitly incomplete operating harness
+     and Bank-obligation stop state.
+7. **W5-7 App and notifications**
+   - Own: `1830-web/src/App.tsx`,
+     `1830-web/src/components/NotificationPopup.tsx`
+   - Implement one-time validated resume/new-game behavior plus notification
+     display/dismissal without render-time mutation.
+
+Each lane runs ESLint only on owned files. Merge W5-1 through W5-7 in order,
+then run full tests, TypeScript, lint, and build. The root integrator owns import
+fixes in `App.tsx`/`GameBoard.tsx`; workers may not edit another lane's file.
+
+### Wave 6A — Cleanup and delivery docs, four parallel lanes
+
+1. **W6A-1 Legacy financial types/constants**
+   - Own: `1830-web/src/types/game.ts`, `1830-web/src/types/constants.ts`
+   - Remove obsolete financial models and duplicate market grids while retaining
+     map, route, tile, train, and station experiment types still imported.
+2. **W6A-2 Obsolete components**
+   - Own only files proven unused from Task 14, including `BidPopup.tsx`,
+     `PurchasePopup.tsx`, `TurnDisplay.tsx`, and `TileLayingInterface.tsx` when
+     present. Delete only after `rg` proves no live importer.
+3. **W6A-3 Obsolete utilities**
+   - Own: `1830-web/src/utils/turnManager.ts`,
+     `1830-web/src/utils/notificationHelpers.ts`
+   - Delete or reduce legacy state-mutating helpers after proving no live import.
+4. **W6A-4 README and verification template**
+   - Own: `1830-web/README.md`,
+     `docs/superpowers/verification/2026-07-14-financial-engine.md`
+   - Document commands, exact milestone scope, and a blank result table; do not
+     mark verification PASS before the root runs it.
+
+Merge the cleanup lanes, repair only resulting imports centrally, and run `rg`,
+TypeScript, tests, lint, and build.
+
+### Wave 6B — Final verification, sequential root gate
+
+The root integrator performs Task 15's automated gate and manual ten-point
+walkthrough, fills the verification record with real results and the final SHA,
+commits it, and stops only with a clean worktree. This gate is intentionally not
+delegated because it validates the integrated artifact rather than one lane.
 
 ---
 
