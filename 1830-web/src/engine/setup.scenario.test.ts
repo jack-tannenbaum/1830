@@ -15,6 +15,10 @@ describe("financial engine scenarios", () => {
       );
       expect(state.bankCash).toBe(9_600);
       expect(state.priorityDealPlayerId).toBe(state.playerOrder[0]);
+      expect(Object.values(state.certificates)).toHaveLength(72);
+      expect(Object.values(state.certificates).filter((certificate) => certificate.isPresident)).toHaveLength(8);
+      expect(Object.values(state.privates).every((privateCompany) => privateCompany.location.type === "bank")).toBe(true);
+      expect(JSON.parse(JSON.stringify(state))).toEqual(state);
     }
   });
 });
