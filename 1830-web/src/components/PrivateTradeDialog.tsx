@@ -21,14 +21,16 @@ function PrivateTradeDialog({ onClose }: PrivateTradeDialogProps) {
   const currentActorId: PlayerId | null =
     game && game.round === "stock" && game.stock ? game.stock.currentActorId : null;
 
-  const ownedPrivates = useMemo<PrivateState[]>(() => {
+  const availablePrivates = useMemo<PrivateState[]>(() => {
     if (!game || !currentActorId) return [];
+    const ownerId = role === "seller" ? currentActorId : counterpartyId;
+    if (!ownerId) return [];
     return Object.values(game.privates).filter(
       (privateCompany) =>
         privateCompany.location.type === "player"
-        && privateCompany.location.playerId === currentActorId,
+        && privateCompany.location.playerId === ownerId,
     );
-  }, [game, currentActorId]);
+  }, [game, currentActorId, role, counterpartyId]);
 
   const otherPlayers = useMemo<PlayerState[]>(() => {
     if (!game || !currentActorId) return [];
@@ -50,13 +52,11 @@ function PrivateTradeDialog({ onClose }: PrivateTradeDialogProps) {
     const sellerName = game.players[pending.sellerId]?.name ?? pending.sellerId;
     const responderName =
       game.players[pending.responderId]?.name ?? pending.responderId;
-    const isResponder = stock.currentActorId === pending.responderId;
-
     const respond = (accepted: boolean) => {
       dispatch({
         id: crypto.randomUUID(),
         gameId: game.id,
-        actorId: stock.currentActorId,
+        actorId: pending.responderId,
         expectedVersion: game.version,
         type: "stock.respondPrivateTrade",
         payload: { accepted },
@@ -95,48 +95,45 @@ function PrivateTradeDialog({ onClose }: PrivateTradeDialogProps) {
             <strong>Price:</strong> ${pending.price}
           </div>
         </div>
-        {isResponder ? (
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              type="button"
-              onClick={() => respond(true)}
-              style={{
-                padding: "6px 12px",
-                background: "#16a34a",
-                color: "white",
-                border: "none",
-                borderRadius: 4,
-                cursor: "pointer",
-              }}
-            >
-              Accept
-            </button>
-            <button
-              type="button"
-              onClick={() => respond(false)}
-              style={{
-                padding: "6px 12px",
-                background: "#dc2626",
-                color: "white",
-                border: "none",
-                borderRadius: 4,
-                cursor: "pointer",
-              }}
-            >
-              Reject
-            </button>
-          </div>
-        ) : (
-          <div style={{ fontStyle: "italic", fontSize: "0.9em" }}>
-            Awaiting response from {responderName}
-          </div>
-        )}
+        <div style={{ marginBottom: 8, fontStyle: "italic", fontSize: "0.9em" }}>
+          {responderName}, confirm or reject this trade.
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            type="button"
+            onClick={() => respond(true)}
+            style={{
+              padding: "6px 12px",
+              background: "#16a34a",
+              color: "white",
+              border: "none",
+              borderRadius: 4,
+              cursor: "pointer",
+            }}
+          >
+            Accept
+          </button>
+          <button
+            type="button"
+            onClick={() => respond(false)}
+            style={{
+              padding: "6px 12px",
+              background: "#dc2626",
+              color: "white",
+              border: "none",
+              borderRadius: 4,
+              cursor: "pointer",
+            }}
+          >
+            Reject
+          </button>
+        </div>
       </div>
     );
   }
 
   const parsedPrice = Number.parseInt(priceInput, 10);
-  const priceValid = Number.isInteger(parsedPrice) && parsedPrice > 0;
+  const priceValid = Number.isInteger(parsedPrice) && parsedPrice >= 0;
   const canSubmit = Boolean(privateId) && Boolean(counterpartyId) && priceValid;
 
   const submit = () => {
@@ -179,7 +176,11 @@ function PrivateTradeDialog({ onClose }: PrivateTradeDialogProps) {
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         <button
           type="button"
-          onClick={() => setRole("seller")}
+          onClick={() => {
+            setRole("seller");
+            setPrivateId("");
+            setCounterpartyId("");
+          }}
           style={{
             padding: "6px 12px",
             border: "1px solid #ccc",
@@ -193,7 +194,11 @@ function PrivateTradeDialog({ onClose }: PrivateTradeDialogProps) {
         </button>
         <button
           type="button"
-          onClick={() => setRole("buyer")}
+          onClick={() => {
+            setRole("buyer");
+            setPrivateId("");
+            setCounterpartyId("");
+          }}
           style={{
             padding: "6px 12px",
             border: "1px solid #ccc",
@@ -217,7 +222,7 @@ function PrivateTradeDialog({ onClose }: PrivateTradeDialogProps) {
           style={{ width: "100%", padding: "6px 8px" }}
         >
           <option value="">Select a private</option>
-          {ownedPrivates.map((privateCompany) => (
+          {availablePrivates.map((privateCompany) => (
             <option key={privateCompany.id} value={privateCompany.id}>
               {privateCompany.name} (face ${privateCompany.faceValue})
             </option>
@@ -231,7 +236,10 @@ function PrivateTradeDialog({ onClose }: PrivateTradeDialogProps) {
         </label>
         <select
           value={counterpartyId}
-          onChange={(event) => setCounterpartyId(event.target.value)}
+          onChange={(event) => {
+            setCounterpartyId(event.target.value);
+            if (role === "buyer") setPrivateId("");
+          }}
           style={{ width: "100%", padding: "6px 8px" }}
         >
           <option value="">Select a player</option>
@@ -249,7 +257,7 @@ function PrivateTradeDialog({ onClose }: PrivateTradeDialogProps) {
         </label>
         <input
           type="number"
-          min={1}
+          min={0}
           step={1}
           value={priceInput}
           onChange={(event) => setPriceInput(event.target.value)}

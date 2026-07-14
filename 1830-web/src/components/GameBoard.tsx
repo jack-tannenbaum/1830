@@ -4,7 +4,6 @@ import { PrivateAuction } from './PrivateAuction';
 import { AuctionSummary } from './AuctionSummary';
 import StockRound from './StockRound';
 import { StockMarketDisplay } from './StockMarketDisplay';
-import { NotificationPopup } from './NotificationPopup';
 import { OperatingShell } from './OperatingShell';
 import { MilestoneStoppedPanel } from './MilestoneStoppedPanel';
 
@@ -50,8 +49,6 @@ export const GameBoard: React.FC = () => {
           </aside>
         </div>
       </div>
-
-      <NotificationPopup />
     </div>
   );
 };

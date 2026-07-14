@@ -124,10 +124,9 @@ const StockRound: React.FC = () => {
     sellableByCorporation.set(certificate.corporationId, list);
   }
 
-  const currentActorHoldsOpenPrivate = Object.values(game.privates).some(
+  const anyPlayerHoldsOpenPrivate = Object.values(game.privates).some(
     (privateCompany) =>
-      privateCompany.location.type === 'player' &&
-      privateCompany.location.playerId === currentActorId,
+      privateCompany.location.type === 'player',
   );
 
   const handleStart = (corporationId: CorporationId): void => {
@@ -427,7 +426,7 @@ const StockRound: React.FC = () => {
               .
             </div>
           </div>
-        ) : currentActorHoldsOpenPrivate ? (
+        ) : anyPlayerHoldsOpenPrivate ? (
           <button
             type="button"
             onClick={() => setTradeDialogOpen(true)}

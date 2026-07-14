@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
+import { STARTING_CASH } from '../engine/constants';
 
 interface GameSetupProps {
   onGameStart: () => void;
@@ -19,6 +20,10 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onGameStart }) => {
   const dispatch = useGameStore((state) => state.dispatch);
 
   const defaultNames = ['Player 1', 'Player 2', 'Player 3', 'Player 4', 'Player 5', 'Player 6'];
+  const validPlayerCount = playerNames.filter((name) => name.trim() !== '').length;
+  const startingCash = validPlayerCount >= 3 && validPlayerCount <= 6
+    ? STARTING_CASH[validPlayerCount as 3 | 4 | 5 | 6]
+    : null;
 
   const fillDefaultNames = () => {
     const namesToFill = playerNames.length;
@@ -136,7 +141,8 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onGameStart }) => {
 
           <div className="pt-4">
             <p className="text-sm text-gray-500 mb-4">
-              3-6 players required. Each player starts with $600.
+              3-6 players required.
+              {startingCash !== null && ` Each player starts with $${startingCash}.`}
             </p>
 
             <button

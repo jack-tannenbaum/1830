@@ -251,8 +251,6 @@ export function executeBuyCertificate(
       },
     },
   };
-  const limitError = validateResultingLimits(nextState, command.actorId, corporation.id);
-  if (limitError) return limitError;
   try {
     nextState = applyPresidencyTransfer(nextState, corporation.id);
   } catch (error) {
@@ -261,6 +259,11 @@ export function executeBuyCertificate(
       error instanceof Error ? error.message : "The presidency cannot transfer",
     );
   }
+  // A purchase can trigger the mandatory president-certificate exchange. The
+  // exchange changes certificate counts, so holding limits apply to the final
+  // post-exchange position rather than the temporary pre-exchange position.
+  const limitError = validateResultingLimits(nextState, command.actorId, corporation.id);
+  if (limitError) return limitError;
   nextState = updateFloatEligibility(nextState, corporation.id);
   nextState = markPurchase(nextState, command.actorId);
   return accept(nextState, [{

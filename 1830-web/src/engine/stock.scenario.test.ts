@@ -340,4 +340,62 @@ describe("financial engine scenarios", () => {
     ));
     expect(correction.stock?.certificateLimitCorrectionByPlayer["player-1"]).toBeNull();
   });
+
+  it("applies a presidency exchange before validating the buyer's certificate limit", () => {
+    const initial = createGame({
+      gameId: "presidency-limit-order",
+      playerNames: ["P1", "P2", "P3", "P4"],
+      placeOrder: [0, 1, 2, 3],
+    });
+    let state: GameState = {
+      ...initial,
+      round: "stock",
+      roundNumber: 2,
+      isFirstStockRound: false,
+      auction: null,
+      stock: stockRoundState(initial, "player-2"),
+      corporations: {
+        ...initial.corporations,
+        PRR: {
+          ...initial.corporations.PRR,
+          lifecycle: "floatEligible",
+          parPrice: 67,
+          market: { row: 6, column: 6, stackIndex: 0 },
+        },
+      },
+    };
+
+    state = giveCertificates(state, "player-1", ["PRR-president", "PRR-10-1"]);
+    state = giveCertificates(state, "player-2", [
+      "PRR-10-2",
+      "PRR-10-3",
+      "PRR-10-4",
+      ...Array.from({ length: 8 }, (_, index) => `NYC-10-${index + 1}`),
+      ...Array.from({ length: 5 }, (_, index) => `CPR-10-${index + 1}`),
+    ]);
+
+    const beforeCount = Object.values(state.certificates).filter(
+      (certificate) => certificate.location.type === "player"
+        && certificate.location.playerId === "player-2",
+    ).length;
+    expect(beforeCount).toBe(16);
+
+    state = accept(state, command(
+      state,
+      "buy-while-at-limit-and-take-presidency",
+      "player-2",
+      "stock.buyCertificate",
+      { certificateId: "PRR-10-5" },
+    ));
+
+    expect(state.certificates["PRR-president"].location).toEqual({
+      type: "player",
+      playerId: "player-2",
+    });
+    const afterCount = Object.values(state.certificates).filter(
+      (certificate) => certificate.location.type === "player"
+        && certificate.location.playerId === "player-2",
+    ).length;
+    expect(afterCount).toBe(16);
+  });
 });
