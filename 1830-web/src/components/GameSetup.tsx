@@ -5,9 +5,18 @@ interface GameSetupProps {
   onGameStart: () => void;
 }
 
+function deriveDeterministicPlaceOrder(n: number): number[] {
+  const arr = Array.from({ length: n }, (_, i) => i);
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 export const GameSetup: React.FC<GameSetupProps> = ({ onGameStart }) => {
   const [playerNames, setPlayerNames] = useState<string[]>(['', '', '', '']);
-  const { initializeGame } = useGameStore();
+  const dispatch = useGameStore((state) => state.dispatch);
 
   const defaultNames = ['Player 1', 'Player 2', 'Player 3', 'Player 4', 'Player 5', 'Player 6'];
 
@@ -44,8 +53,22 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onGameStart }) => {
 
   const handleStartGame = () => {
     const validNames = playerNames.filter(name => name.trim() !== '');
-    if (validNames.length >= 3) {
-      initializeGame(validNames);
+    if (validNames.length < 3 || validNames.length > 6) return;
+
+    const commandId = crypto.randomUUID();
+    const gameId = crypto.randomUUID();
+    const placeOrder = deriveDeterministicPlaceOrder(validNames.length);
+
+    const result = dispatch({
+      id: commandId,
+      gameId,
+      actorId: `player-${placeOrder[0] + 1}`,
+      expectedVersion: 0,
+      type: 'game.create',
+      payload: { playerNames: validNames, placeOrder },
+    });
+
+    if (result.ok) {
       onGameStart();
     }
   };
@@ -65,7 +88,7 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onGameStart }) => {
 
         <div className="space-y-4">
           <h2 className="text-xl font-semibold text-gray-700 mb-4">Player Setup</h2>
-          
+
           <div className="flex gap-2 mb-4">
             <button
               onClick={fillDefaultNames}
@@ -74,7 +97,7 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onGameStart }) => {
               Fill Default Names
             </button>
           </div>
-          
+
           {playerNames.map((name, index) => (
             <div key={index} className="flex gap-2">
               <input
@@ -115,19 +138,19 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onGameStart }) => {
             <p className="text-sm text-gray-500 mb-4">
               3-6 players required. Each player starts with $600.
             </p>
-            
+
             <button
               onClick={handleStartGame}
               disabled={!isValidSetup()}
               className={`w-full py-3 font-semibold rounded-md transition-colors ${
-                isValidSetup() 
-                  ? 'bg-green-600 hover:bg-green-700 text-white' 
+                isValidSetup()
+                  ? 'bg-green-600 hover:bg-green-700 text-white'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
               Start Game
             </button>
-            
+
             <div className="mt-4 pt-4 border-t border-gray-200">
               <p className="text-sm text-gray-500 mb-3 text-center">
                 Developer Tools
