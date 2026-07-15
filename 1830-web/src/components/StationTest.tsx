@@ -17,18 +17,7 @@ const StationTest: React.FC = () => {
         name: 'Baltimore & Ohio',
         abbreviation: 'B&O',
         color: '#ff6b6b',
-        treasury: 1000,
         stations: [],
-        shares: 10,
-        parValue: 67,
-        sharePrice: 67,
-        trains: [],
-        tokens: [],
-        ipoShares: [],
-        bankShares: [],
-        playerShares: new Map(),
-        started: true,
-        floated: true,
         isFloated: true
       },
       {
@@ -36,18 +25,7 @@ const StationTest: React.FC = () => {
         name: 'Chesapeake & Ohio',
         abbreviation: 'C&O',
         color: '#4ecdc4',
-        treasury: 1000,
         stations: [],
-        shares: 10,
-        parValue: 67,
-        sharePrice: 67,
-        trains: [],
-        tokens: [],
-        ipoShares: [],
-        bankShares: [],
-        playerShares: new Map(),
-        started: true,
-        floated: true,
         isFloated: true
       },
       {
@@ -55,18 +33,7 @@ const StationTest: React.FC = () => {
         name: 'New York Central',
         abbreviation: 'NYC',
         color: '#45b7d1',
-        treasury: 1000,
         stations: [],
-        shares: 10,
-        parValue: 67,
-        sharePrice: 67,
-        trains: [],
-        tokens: [],
-        ipoShares: [],
-        bankShares: [],
-        playerShares: new Map(),
-        started: true,
-        floated: true,
         isFloated: true
       }
     ];
@@ -93,7 +60,7 @@ const StationTest: React.FC = () => {
     }
   };
 
-  const handleRemoveStation = (tileId: string, corporationId: string) => {
+  const _handleRemoveStation = (tileId: string, corporationId: string) => {
     const success = stationManager.removeStation(tileId, corporationId);
     if (success) {
       setCorporations([...corporations]);

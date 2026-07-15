@@ -1,91 +1,114 @@
-import React from 'react';
+import type { GameState } from '../engine/model';
+import {
+  getAuctionView,
+  getCorporationPresident,
+  getOperatingShellView,
+  getStockRoundView,
+} from '../engine/selectors';
 import { useGameStore } from '../store/gameStore';
 import { useColors } from '../styles/colors';
-import { ActionType } from '../types/game';
 
-export const TurnDisplay: React.FC = () => {
-  const { currentTurn, players, roundType, isPlayerTurn, getAvailableActions } = useGameStore();
-  const colors = useColors();
+interface TurnDisplayProps {
+  game: GameState;
+}
 
-  if (!currentTurn || !currentTurn.isActive) {
-    return null;
+function turnDetails(game: GameState): {
+  actor: string | null;
+  round: string;
+  actions: string[];
+} {
+  if (game.round === 'privateAuction' && game.auction) {
+    const view = getAuctionView(game);
+    const actions: string[] = [];
+    if (view.actions.mustSetBOPar) actions.push('Set B&O Par Value');
+    if (view.actions.mayBuyOfferedPrivate) actions.push('Buy Cheapest Private');
+    if (view.actions.advanceBidPrivateIds.length > 0) actions.push('Bid on Private');
+    if (view.actions.mayRaiseBid) actions.push('Raise Bid');
+    if (view.actions.mayPass) actions.push('Pass Auction');
+    return {
+      actor: view.currentPlayer.name,
+      round: view.bidOff ? 'Auction bid-off' : 'Private auction',
+      actions,
+    };
   }
 
-  const currentPlayer = players.find(p => p.id === currentTurn.playerId);
-  const availableActions = getAvailableActions();
-  const timeRemaining = Math.max(0, currentTurn.timeoutMs - (Date.now() - currentTurn.startTime));
-  const timeRemainingSeconds = Math.ceil(timeRemaining / 1000);
-
-  // Format action names for display
-  const formatActionName = (action: ActionType): string => {
-    switch (action) {
-      case ActionType.BUY_CHEAPEST_PRIVATE:
-        return 'Buy Cheapest Private';
-      case ActionType.BID_ON_PRIVATE:
-        return 'Bid on Private';
-      case ActionType.PASS_PRIVATE_AUCTION:
-        return 'Pass Auction';
-      case ActionType.BUY_CERTIFICATE:
-        return 'Buy Certificate';
-      case ActionType.BUY_PRESIDENT_CERTIFICATE:
-        return 'Buy President Certificate';
-      case ActionType.SELL_CERTIFICATE:
-        return 'Sell Certificate';
-      case ActionType.PASS_STOCK:
-        return 'Pass Stock Round';
-      case ActionType.LAY_TRACK:
-        return 'Lay Track';
-      case ActionType.PLACE_TOKEN:
-        return 'Place Token';
-      case ActionType.RUN_TRAINS:
-        return 'Run Trains';
-      case ActionType.BUY_TRAIN:
-        return 'Buy Train';
-      case ActionType.DECLARE_DIVIDEND:
-        return 'Declare Dividend';
-      default:
-        return action;
+  if (game.round === 'stock' && game.stock) {
+    const view = getStockRoundView(game);
+    const actions: string[] = [];
+    if (view.purchasableCertificateIds.length > 0 || game.stock.turn.purchaseCount === 0) {
+      actions.push('Buy Certificate');
     }
+    if (view.sellableCertificateIds.length > 0) actions.push('Sell Certificate');
+    if (!game.isFirstStockRound) actions.push('Trade Private Company');
+    if (view.mayFinishTurn) actions.push('Finish Turn');
+    if (view.mayPass) actions.push('Pass Stock Round');
+    return {
+      actor: view.currentPlayer.name,
+      round: 'Stock round',
+      actions,
+    };
+  }
+
+  if (game.round === 'operatingShell') {
+    const corporation = getOperatingShellView(game).currentCorporation;
+    return {
+      actor: corporation ? corporation.abbreviation : null,
+      round: 'Operating',
+      actions: corporation ? [`End ${corporation.abbreviation} turn`] : [],
+    };
+  }
+
+  return { actor: null, round: 'Game', actions: [] };
+}
+
+export function TurnDisplay({ game }: TurnDisplayProps) {
+  const colors = useColors();
+  const dispatch = useGameStore((state) => state.dispatch);
+  const details = turnDetails(game);
+  if (!details.actor) return null;
+
+  const currentCorporation = game.round === 'operatingShell'
+    ? getOperatingShellView(game).currentCorporation
+    : null;
+  const currentPresidentId = currentCorporation
+    ? getCorporationPresident(game, currentCorporation.id)
+    : null;
+
+  const handleEndCorporationTurn = () => {
+    if (!currentCorporation || !currentPresidentId) return;
+    dispatch({
+      id: crypto.randomUUID(),
+      gameId: game.id,
+      actorId: currentPresidentId,
+      expectedVersion: game.version,
+      type: 'operatingShell.endCorporationTurn',
+      payload: { corporationId: currentCorporation.id },
+    });
   };
 
   return (
-    <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 ${colors.card.background} ${colors.card.border} rounded-lg shadow-lg p-4 min-w-80`}>
-      <div className="text-center">
-        <h3 className={`text-lg font-semibold mb-2 ${colors.text.primary}`}>
-          Current Turn
-        </h3>
-        
-        <div className={`text-xl font-bold mb-2 ${colors.text.accent}`}>
-          {currentPlayer?.name || 'Unknown Player'}
-        </div>
-        
-        <div className={`text-sm mb-3 ${colors.text.secondary}`}>
-          {roundType.replace('_', ' ').toUpperCase()} ROUND
-        </div>
-        
-        {/* Time remaining */}
-        <div className={`text-sm font-medium mb-3 ${
-          timeRemainingSeconds <= 10 ? colors.text.danger : 
-          timeRemainingSeconds <= 30 ? colors.text.warning : 
-          colors.text.success
-        }`}>
-          Time Remaining: {timeRemainingSeconds}s
-        </div>
-        
-        {/* Available actions */}
-        <div className="text-left">
-          <div className={`text-xs font-medium mb-1 ${colors.text.secondary}`}>
-            Available Actions:
-          </div>
-          <div className="space-y-1">
-            {availableActions.map((action) => (
-              <div key={action} className={`text-xs ${colors.text.tertiary}`}>
-                • {formatActionName(action)}
-              </div>
-            ))}
-          </div>
-        </div>
+    <div
+      aria-label="Current turn"
+      className={`flex items-center overflow-hidden rounded-lg border ${colors.card.background} ${colors.card.border}`}
+      title={details.actions.length > 0 ? `Available actions: ${details.actions.join(', ')}` : undefined}
+    >
+      <div className="px-3 py-1.5 text-right leading-tight">
+        <div className={`text-[11px] uppercase tracking-wide ${colors.text.tertiary}`}>{details.round}</div>
+        <div className={`text-sm font-semibold ${colors.text.accent}`}>{details.actor}</div>
       </div>
+      {currentCorporation && (
+        <button
+          type="button"
+          onClick={handleEndCorporationTurn}
+          disabled={!currentPresidentId}
+          className={`self-stretch border-l px-3 text-sm font-medium ${
+            currentPresidentId ? colors.button.primary : colors.button.disabled
+          }`}
+          style={{ borderColor: 'var(--border-color)' }}
+        >
+          End Turn
+        </button>
+      )}
     </div>
   );
-};
+}

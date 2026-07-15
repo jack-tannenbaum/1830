@@ -15,12 +15,13 @@ export function validateTrainLength(path: string[], trainType: string): { isVali
     case '3-train':
     case '4-train':
     case '5-train':
-    case '6-train':
+    case '6-train': {
       const maxLength = parseInt(trainType.split('-')[0]);
       if (pathLength > maxLength) {
         return { isValid: false, error: `${trainType} can visit at most ${maxLength} revenue centers, got ${pathLength}` };
       }
       break;
+    }
     case 'diesel':
       if (pathLength > 999) {
         return { isValid: false, error: 'Diesel can visit at most 999 revenue centers' };

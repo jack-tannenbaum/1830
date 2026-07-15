@@ -128,7 +128,7 @@ export function runEnhancedTest(): string {
 
 // === Test Layout Display ===
 
-export function getTestLayout(): any {
+export function getTestLayout(): unknown {
   return {
     simple: createTestLayout(),
     enhanced: createEnhancedTestLayout()

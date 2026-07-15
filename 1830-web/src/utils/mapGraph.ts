@@ -1,5 +1,5 @@
-import type { GameMapGraph, RevenueCenter, RouteValidation, TrackConnection, HexCoordinate } from '../types/mapGraph';
-import { hexToString, stringToHex, getNeighbors, hexDistance, offsetToCube } from './hexCoordinates';
+import type { GameMapGraph, RevenueCenter, RouteValidation, TrackConnection, TrackTile, HexCoordinate } from '../types/mapGraph';
+import { hexToString, stringToHex } from './hexCoordinates';
 
 // === Utility Functions ===
 
@@ -154,7 +154,7 @@ export function createTestLayout(): GameMapGraph {
   ];
 
   // Create initial track tiles
-  const trackTiles: Record<string, any> = {
+  const trackTiles: Record<string, TrackTile> = {
     '0,0,0': {
       id: 'yellow-straight-0,0,0',
       type: 'straight',
@@ -320,7 +320,7 @@ export function createEnhancedTestLayout(): GameMapGraph {
   ];
 
   // Create track tiles for all hexes
-  const trackTiles: Record<string, any> = {};
+  const trackTiles: Record<string, TrackTile> = {};
   
   // Helper to create a standard track tile
   const createTrackTile = (coord: HexCoordinate, id: string) => ({

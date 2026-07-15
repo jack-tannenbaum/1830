@@ -3,7 +3,7 @@ import HexGrid from './HexGrid';
 import { HexCoordinate } from '../types/mapGraph';
 import { hexToString } from '../utils/hexCoordinates';
 import TileRenderer from './TileRenderer';
-import { ALL_TILES, getPlayableTilesByColor, canPlaceTile } from '../types/tiles';
+import { getPlayableTilesByColor, canPlaceTile } from '../types/tiles';
 
 const HexGridTest: React.FC = () => {
   const [selectedHex, setSelectedHex] = useState<HexCoordinate | null>(null);

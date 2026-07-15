@@ -1,7 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { HexCoordinate } from '../types/mapGraph';
-import { hexToString, getNeighbors, hexesInRadius } from '../utils/hexCoordinates';
-import { ALL_TILES } from '../types/tiles';
+import { hexToString, hexesInRadius } from '../utils/hexCoordinates';
 import { getSidePosition } from '../utils/hexUtils';
 import { useColors } from '../styles/colors';
 
@@ -32,10 +31,6 @@ const HexGrid: React.FC<HexGridProps> = ({
 }) => {
   const colors = useColors();
   
-  // Calculate hex dimensions
-  const width = hexSize * 2;
-  const height = Math.sqrt(3) * hexSize;
-
   // Get all hexes in the specified radius
   const hexes = hexesInRadius(centerHex, radius);
 
@@ -45,21 +40,20 @@ const HexGrid: React.FC<HexGridProps> = ({
     
     // Create a seeded random number generator
     const seededRandom = (seed: number) => {
-      let x = Math.sin(seed) * 10000;
+      const x = Math.sin(seed) * 10000;
       return x - Math.floor(x);
     };
     
     let bTileCount = 0;
     let twoCityCount = 0;
-    let nycPlaced = false;
-    
+
     // First, place NYC tile (always one per board)
     const nycHexIndex = Math.floor(seededRandom(seed * 1000) * hexes.length);
     const nycHex = hexes[nycHexIndex];
     const nycHexKey = hexToString(nycHex);
     features.set(nycHexKey, 'NYC');
-    nycPlaced = true;
-    
+
+
     hexes.forEach((hex, index) => {
       const hexKey = hexToString(hex);
       
@@ -141,11 +135,6 @@ const HexGrid: React.FC<HexGridProps> = ({
     return highlightedHexes.some(h => 
       h.q === hex.q && h.r === hex.r && h.s === hex.s
     );
-  };
-
-  // Get neighbors for hover effect
-  const getNeighborHexes = (hex: HexCoordinate) => {
-    return getNeighbors(hex);
   };
 
   // Render NYC tile track connections

@@ -1,102 +1,98 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+
+import type { UiNotification } from '../engine/adapter-contracts';
+import { useGameStore } from '../store/gameStore';
 import { useColors } from '../styles/colors';
 
-export type NotificationType = 'bid' | 'purchase' | 'info' | 'warning' | 'success';
+const MAX_VISIBLE_NOTIFICATIONS = 4;
 
-interface NotificationPopupProps {
-  id: string;
-  title: string;
-  message: string;
-  type: NotificationType;
-  onClose: () => void;
-  index: number; // Position in the stack
-  duration?: number; // Auto-close duration in ms
-}
-
-export const NotificationPopup: React.FC<NotificationPopupProps> = ({ 
-  title, 
-  message, 
-  type,
-  onClose,
-  index,
-  duration = 4000
-}) => {
+function NotificationToast({
+  notification,
+  dismiss,
+}: {
+  notification: UiNotification;
+  dismiss: (notificationId: string) => void;
+}) {
   const colors = useColors();
-  const [isVisible, setIsVisible] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
+  const notificationColors = notification.type === 'success'
+    ? colors.notification.purchase
+    : notification.type === 'error' || notification.type === 'warning'
+      ? colors.notification.warning
+      : colors.notification.info;
 
   useEffect(() => {
-    // Mount the component first
-    setIsMounted(true);
-    
-    // Then slide in and fade in
-    const entranceTimer = setTimeout(() => {
-      setIsVisible(true);
-    }, 100);
-    
-    // Auto-remove after duration
-    const exitTimer = setTimeout(() => {
-      setIsVisible(false);
-      // Wait for fade-out animation to complete
-      setTimeout(() => {
-        onClose();
-      }, 500);
-    }, duration);
-
-    return () => {
-      clearTimeout(entranceTimer);
-      clearTimeout(exitTimer);
-    };
-  }, [onClose, duration]);
-
-           const getNotificationColors = () => {
-           switch (type) {
-             case 'bid': return colors.notification.bid;
-             case 'purchase': return colors.notification.purchase;
-             case 'warning': return colors.notification.warning;
-             case 'info': return colors.notification.info;
-             default: return colors.notification.info;
-           }
-         };
-
-         const notificationColors = getNotificationColors();
+    const timeout = window.setTimeout(
+      () => dismiss(notification.id),
+      notification.type === 'error' ? 10_000 : 6_000,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [dismiss, notification.id, notification.type]);
 
   return (
-    <div 
-      className={`fixed transition-all duration-500 ease-out z-50 ${
-        isMounted ? 'translate-y-0' : 'translate-y-full'
-      } ${
-        isVisible ? 'opacity-100' : 'opacity-0'
-      }`}
-      style={{ 
-        bottom: `${20 + (index * 80)}px`, // Stack from bottom right, 80px apart
-        right: '20px',
-        width: '400px',
-        maxWidth: 'calc(100vw - 40px)', // Ensure it doesn't overflow the viewport
-        position: 'fixed' // Explicitly set position
-      }}
+    <div
+      role={notification.type === 'error' ? 'alert' : 'status'}
+      className={`notification-toast flex items-start justify-between rounded-lg border-l-4 p-4 shadow-lg ${notificationColors.background} ${notificationColors.border} ${notificationColors.text}`}
     >
-                   <div className={`rounded-lg shadow-lg border-l-4 p-4 ${notificationColors.background} ${notificationColors.border}`}>
-               <div className="flex items-center justify-between">
-                 <div>
-                   <div className={`font-semibold text-lg ${notificationColors.title}`}>
-                     {title}
-                   </div>
-                   <div className={`text-sm ${notificationColors.text}`}>
-                     {message}
-                   </div>
-                 </div>
-          <button 
-            onClick={() => {
-              setIsVisible(false);
-              setTimeout(() => onClose(), 300);
-            }}
-            className={`transition-colors ${colors.text.tertiary} hover:${colors.text.secondary}`}
-          >
-            ×
-          </button>
-        </div>
-      </div>
+      <div className="flex-1 break-words pr-2 text-sm">{notification.message}</div>
+      <button
+        type="button"
+        onClick={() => dismiss(notification.id)}
+        aria-label="Dismiss notification"
+        className="ml-2 text-lg leading-none opacity-70 hover:opacity-100"
+      >
+        ×
+      </button>
     </div>
   );
-};
+}
+
+export function NotificationPopup() {
+  const notifications = useGameStore((state) => state.notifications);
+  const dismissNotification = useGameStore((state) => state.dismissNotification);
+
+  if (notifications.length === 0) {
+    return null;
+  }
+
+  const visibleNotifications = notifications.slice(-MAX_VISIBLE_NOTIFICATIONS);
+  const hiddenCount = notifications.length - visibleNotifications.length;
+  const clearAll = () => {
+    notifications.forEach((notification) => dismissNotification(notification.id));
+  };
+
+  return (
+    <div
+      className="fixed z-50 flex flex-col gap-2"
+      style={{
+        bottom: '20px',
+        right: '20px',
+        width: '400px',
+        maxWidth: 'calc(100vw - 40px)',
+      }}
+    >
+      <div className="flex items-center justify-between px-1 text-xs">
+        <span style={{ color: 'var(--text-secondary)' }}>
+          {hiddenCount > 0 ? `${hiddenCount} earlier hidden` : 'Notifications'}
+        </span>
+        <button
+          type="button"
+          onClick={clearAll}
+          className="rounded px-2 py-1 font-medium"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            color: 'var(--text-primary)',
+          }}
+        >
+          Clear all
+        </button>
+      </div>
+      {visibleNotifications.map((notification) => (
+        <NotificationToast
+          key={notification.id}
+          notification={notification}
+          dismiss={dismissNotification}
+        />
+      ))}
+    </div>
+  );
+}

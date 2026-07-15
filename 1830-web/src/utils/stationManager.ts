@@ -225,7 +225,7 @@ export class StationManager {
     const stations: Station[] = [];
     corporation.stations.forEach(stationId => {
       // Find which tile this station belongs to
-      for (const [tileId, tileData] of this.tileStations) {
+      for (const [, tileData] of this.tileStations) {
         const station = tileData.stations.find(s => s.id === stationId);
         if (station) {
           stations.push(station);
