@@ -4,11 +4,18 @@ import { GameBoard } from './components/GameBoard';
 import { GameSetup } from './components/GameSetup';
 import { NotificationPopup } from './components/NotificationPopup';
 import { useGameStore } from './store/gameStore';
+import { useThemeStore } from './store/themeStore';
 
 function App() {
   const game = useGameStore((state) => state.game);
   const load = useGameStore((state) => state.load);
+  const theme = useThemeStore((state) => state.theme);
   const hasLoadedRef = useRef(false);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+  }, [theme]);
 
   useEffect(() => {
     if (hasLoadedRef.current) {
