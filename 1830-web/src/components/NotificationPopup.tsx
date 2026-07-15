@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 
 import type { UiNotification } from '../engine/adapter-contracts';
 import { useGameStore } from '../store/gameStore';
+import { useColors } from '../styles/colors';
 
 const MAX_VISIBLE_NOTIFICATIONS = 4;
 
@@ -12,6 +13,13 @@ function NotificationToast({
   notification: UiNotification;
   dismiss: (notificationId: string) => void;
 }) {
+  const colors = useColors();
+  const notificationColors = notification.type === 'success'
+    ? colors.notification.purchase
+    : notification.type === 'error' || notification.type === 'warning'
+      ? colors.notification.warning
+      : colors.notification.info;
+
   useEffect(() => {
     const timeout = window.setTimeout(
       () => dismiss(notification.id),
@@ -23,8 +31,7 @@ function NotificationToast({
   return (
     <div
       role={notification.type === 'error' ? 'alert' : 'status'}
-      className="notification-toast flex items-start justify-between rounded-lg border-l-4 p-4 shadow-lg"
-      data-level={notification.type}
+      className={`notification-toast flex items-start justify-between rounded-lg border-l-4 p-4 shadow-lg ${notificationColors.background} ${notificationColors.border} ${notificationColors.text}`}
     >
       <div className="flex-1 break-words pr-2 text-sm">{notification.message}</div>
       <button

@@ -266,9 +266,10 @@ export function executeBuyCertificate(
   if (limitError) return limitError;
   nextState = updateFloatEligibility(nextState, corporation.id);
   nextState = markPurchase(nextState, command.actorId);
+  const source = certificate.location.type === "initialOffering" ? "the IPO" : "the Bank Pool";
   return accept(nextState, [{
     type: "stock.certificatePurchased",
-    message: `${player.name} bought ${certificate.id}`,
+    message: `${player.name} bought a ${certificate.percent}% ${corporation.abbreviation} share from ${source}`,
     data: {
       playerId: command.actorId,
       corporationId: corporation.id,

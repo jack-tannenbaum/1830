@@ -152,7 +152,10 @@ export function getAvailablePrivateActions(state: GameState): AvailablePrivateAc
   }
 
   const actorId = auction.bidOff?.currentActorId ?? auction.currentActorId;
-  const availableCash = availableAuctionCash(state, actorId);
+  // During a bid-off, the player's stake on this private remains available
+  // toward the eventual purchase. Only locks on other privates reduce the
+  // cash the UI should present as usable for the next raise.
+  const availableCash = availableAuctionCash(state, actorId, auction.bidOff?.privateId);
   const mustSetBOPar = auction.pendingBOParPlayerId === actorId;
   const currentPrivate = state.privates[auction.currentPrivateId];
   const privateOrder = sortedPrivates(state);

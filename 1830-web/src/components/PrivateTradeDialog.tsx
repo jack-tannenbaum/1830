@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 
 import type { PlayerId, PlayerState, PrivateId, PrivateState } from "../engine/model";
 import { useGameStore } from "../store/gameStore";
+import { useColors } from "../styles/colors";
 
 export interface PrivateTradeDialogProps {
   onClose: () => void;
@@ -12,6 +13,15 @@ type ActorRole = "seller" | "buyer";
 function PrivateTradeDialog({ onClose }: PrivateTradeDialogProps) {
   const game = useGameStore((s) => s.game);
   const dispatch = useGameStore((s) => s.dispatch);
+  const colors = useColors();
+  const fieldStyle = {
+    width: "100%",
+    padding: "6px 8px",
+    background: "var(--bg-card-alt, var(--bg-card))",
+    color: "var(--text-primary)",
+    border: "1px solid var(--border-color)",
+    borderRadius: 4,
+  } as const;
 
   const [role, setRole] = useState<ActorRole>("seller");
   const [privateId, setPrivateId] = useState<PrivateId | "">("");
@@ -68,10 +78,10 @@ function PrivateTradeDialog({ onClose }: PrivateTradeDialogProps) {
       <div
         style={{
           padding: 16,
-          border: "1px solid #ccc",
+          border: "1px solid var(--border-color)",
           borderRadius: 8,
-          background: "white",
-          color: "black",
+          background: "var(--bg-card)",
+          color: "var(--text-primary)",
           maxWidth: 480,
         }}
       >
@@ -98,32 +108,18 @@ function PrivateTradeDialog({ onClose }: PrivateTradeDialogProps) {
         <div style={{ marginBottom: 8, fontStyle: "italic", fontSize: "0.9em" }}>
           {responderName}, confirm or reject this trade.
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="ui-actions">
           <button
             type="button"
             onClick={() => respond(true)}
-            style={{
-              padding: "6px 12px",
-              background: "#16a34a",
-              color: "white",
-              border: "none",
-              borderRadius: 4,
-              cursor: "pointer",
-            }}
+            className={`rounded px-3 py-2 ${colors.button.success}`}
           >
             Accept
           </button>
           <button
             type="button"
             onClick={() => respond(false)}
-            style={{
-              padding: "6px 12px",
-              background: "#dc2626",
-              color: "white",
-              border: "none",
-              borderRadius: 4,
-              cursor: "pointer",
-            }}
+            className={`rounded px-3 py-2 ${colors.button.danger}`}
           >
             Reject
           </button>
@@ -162,10 +158,10 @@ function PrivateTradeDialog({ onClose }: PrivateTradeDialogProps) {
     <div
       style={{
         padding: 16,
-        border: "1px solid #ccc",
+        border: "1px solid var(--border-color)",
         borderRadius: 8,
-        background: "white",
-        color: "black",
+        background: "var(--bg-card)",
+        color: "var(--text-primary)",
         maxWidth: 480,
       }}
     >
@@ -173,7 +169,7 @@ function PrivateTradeDialog({ onClose }: PrivateTradeDialogProps) {
         Propose Private-Company Trade
       </h3>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+      <div className="ui-actions" style={{ marginBottom: 12 }}>
         <button
           type="button"
           onClick={() => {
@@ -181,14 +177,7 @@ function PrivateTradeDialog({ onClose }: PrivateTradeDialogProps) {
             setPrivateId("");
             setCounterpartyId("");
           }}
-          style={{
-            padding: "6px 12px",
-            border: "1px solid #ccc",
-            borderRadius: 4,
-            background: role === "seller" ? "#3b82f6" : "white",
-            color: role === "seller" ? "white" : "black",
-            cursor: "pointer",
-          }}
+          className={`rounded px-3 py-2 ${role === "seller" ? colors.button.primary : colors.button.secondary}`}
         >
           I&apos;m selling
         </button>
@@ -199,14 +188,7 @@ function PrivateTradeDialog({ onClose }: PrivateTradeDialogProps) {
             setPrivateId("");
             setCounterpartyId("");
           }}
-          style={{
-            padding: "6px 12px",
-            border: "1px solid #ccc",
-            borderRadius: 4,
-            background: role === "buyer" ? "#3b82f6" : "white",
-            color: role === "buyer" ? "white" : "black",
-            cursor: "pointer",
-          }}
+          className={`rounded px-3 py-2 ${role === "buyer" ? colors.button.primary : colors.button.secondary}`}
         >
           I&apos;m buying
         </button>
@@ -219,7 +201,7 @@ function PrivateTradeDialog({ onClose }: PrivateTradeDialogProps) {
         <select
           value={privateId}
           onChange={(event) => setPrivateId(event.target.value)}
-          style={{ width: "100%", padding: "6px 8px" }}
+          style={fieldStyle}
         >
           <option value="">Select a private</option>
           {availablePrivates.map((privateCompany) => (
@@ -240,7 +222,7 @@ function PrivateTradeDialog({ onClose }: PrivateTradeDialogProps) {
             setCounterpartyId(event.target.value);
             if (role === "buyer") setPrivateId("");
           }}
-          style={{ width: "100%", padding: "6px 8px" }}
+          style={fieldStyle}
         >
           <option value="">Select a player</option>
           {otherPlayers.map((player) => (
@@ -261,37 +243,23 @@ function PrivateTradeDialog({ onClose }: PrivateTradeDialogProps) {
           step={1}
           value={priceInput}
           onChange={(event) => setPriceInput(event.target.value)}
-          style={{ width: "100%", padding: "6px 8px" }}
+          style={fieldStyle}
         />
       </div>
 
-      <div style={{ display: "flex", gap: 8 }}>
+      <div className="ui-actions">
         <button
           type="button"
           onClick={submit}
           disabled={!canSubmit}
-          style={{
-            padding: "6px 12px",
-            background: canSubmit ? "#3b82f6" : "#9ca3af",
-            color: "white",
-            border: "none",
-            borderRadius: 4,
-            cursor: canSubmit ? "pointer" : "not-allowed",
-          }}
+          className={`rounded px-3 py-2 ${canSubmit ? colors.button.primary : colors.button.disabled}`}
         >
           Propose
         </button>
         <button
           type="button"
           onClick={onClose}
-          style={{
-            padding: "6px 12px",
-            background: "white",
-            color: "black",
-            border: "1px solid #ccc",
-            borderRadius: 4,
-            cursor: "pointer",
-          }}
+          className={`rounded px-3 py-2 ${colors.button.secondary}`}
         >
           Cancel
         </button>

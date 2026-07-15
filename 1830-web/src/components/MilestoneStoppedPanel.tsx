@@ -1,6 +1,7 @@
 import React from 'react';
 import { useGameStore } from '../store/gameStore';
 import type { BankObligation } from '../engine/model';
+import { useColors } from '../styles/colors';
 
 /**
  * MilestoneStoppedPanel is the terminal screen shown when the bank has been
@@ -13,6 +14,7 @@ import type { BankObligation } from '../engine/model';
 export const MilestoneStoppedPanel: React.FC = () => {
   const game = useGameStore((s) => s.game);
   const newGame = useGameStore((s) => s.newGame);
+  const colors = useColors();
   if (game === null || game.round !== 'milestoneStopped') return null;
 
   const describeRecipient = (obligation: BankObligation): string => {
@@ -52,7 +54,7 @@ export const MilestoneStoppedPanel: React.FC = () => {
       <button
         type="button"
         onClick={() => newGame()}
-        className="px-4 py-2 rounded bg-blue-600 text-white font-medium"
+        className={`rounded px-4 py-2 font-medium ${colors.button.primary}`}
       >
         New Game
       </button>

@@ -5,6 +5,7 @@ import {
   getOperatingShellView,
   getStockMarketView,
 } from '../engine/selectors';
+import { useColors } from '../styles/colors';
 
 /**
  * OperatingShell renders the integration harness for the Operating Round.
@@ -18,6 +19,7 @@ import {
 export const OperatingShell: React.FC = () => {
   const game = useGameStore((s) => s.game);
   const dispatch = useGameStore((s) => s.dispatch);
+  const colors = useColors();
   if (game === null || game.round !== 'operatingShell') return null;
 
   const view = getOperatingShellView(game);
@@ -46,13 +48,13 @@ export const OperatingShell: React.FC = () => {
     <section className="space-y-4">
       <div
         role="alert"
-        className="rounded-lg border-2 border-yellow-500 bg-yellow-100 text-yellow-900 p-4 font-semibold"
+        className="ui-surface-warning rounded-lg border-2 p-4 font-semibold"
       >
         Integration harness: trains, routes, dividends, and legal operating
         market movement are not implemented.
       </div>
 
-      <div className="rounded-lg border p-4">
+      <div className={`rounded-lg border p-4 ${colors.card.background} ${colors.card.border}`}>
         <h2 className="text-lg font-semibold mb-2">Operating Order</h2>
         <ol className="space-y-1">
           {view.operatingOrder.map((corporation, index) => {
@@ -63,7 +65,7 @@ export const OperatingShell: React.FC = () => {
                 aria-current={isCurrent ? 'step' : undefined}
                 className={
                   isCurrent
-                    ? 'font-bold px-2 py-1 rounded bg-blue-100 text-blue-900'
+                    ? 'ui-surface-accent font-bold px-2 py-1 rounded'
                     : 'px-2 py-1'
                 }
               >
@@ -75,7 +77,7 @@ export const OperatingShell: React.FC = () => {
       </div>
 
       {current && (
-        <div className="rounded-lg border p-4 space-y-2">
+        <div className={`rounded-lg border p-4 space-y-2 ${colors.card.background} ${colors.card.border}`}>
           <h2 className="text-lg font-semibold">
             Now operating: {current.abbreviation} — {current.name}
           </h2>
@@ -90,7 +92,7 @@ export const OperatingShell: React.FC = () => {
             type="button"
             onClick={handleEndCorporationTurn}
             disabled={!presidentId}
-            className="mt-2 px-4 py-2 rounded bg-blue-600 text-white font-medium disabled:opacity-50"
+            className={`mt-2 rounded px-4 py-2 font-medium ${presidentId ? colors.button.primary : colors.button.disabled}`}
           >
             End Corporation Turn
           </button>

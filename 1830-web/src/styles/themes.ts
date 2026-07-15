@@ -34,12 +34,12 @@ export const lightTheme = {
 
   // Button colors
   button: {
-    primary: 'bg-blue-500 hover:bg-blue-600 text-white',
-    secondary: 'bg-gray-500 hover:bg-gray-600 text-white',
-    success: 'bg-green-500 hover:bg-green-600 text-white',
-    danger: 'bg-red-500 hover:bg-red-600 text-white',
-    warning: 'bg-orange-500 hover:bg-orange-600 text-white',
-    disabled: 'bg-gray-300 text-gray-500 cursor-not-allowed'
+    primary: 'ui-button-primary',
+    secondary: 'ui-button-secondary',
+    success: 'ui-button-success',
+    danger: 'ui-button-danger',
+    warning: 'ui-button-warning',
+    disabled: 'ui-button-disabled'
   },
 
   // Player status colors
@@ -204,12 +204,12 @@ export const darkTheme = {
 
   // Button colors
   button: {
-    primary: 'bg-[#004D61] hover:bg-[#006D81] text-[#F0F0F0]', // dark teal
-    secondary: 'bg-[#3A3A3A] hover:bg-[#4A4A4A] text-[#F0F0F0]', // dark gray
-    success: 'bg-[#3E5641] hover:bg-[#4E6641] text-[#F0F0F0]', // forest green
-    danger: 'bg-[#822659] hover:bg-[#923669] text-[#F0F0F0]', // deep ruby
-    warning: 'bg-orange-600 hover:bg-orange-700 text-[#FFFFFF]', // dark orange with pure white text
-    disabled: 'bg-[#3A3A3A] text-[#606060] cursor-not-allowed'
+    primary: 'ui-button-primary',
+    secondary: 'ui-button-secondary',
+    success: 'ui-button-success',
+    danger: 'ui-button-danger',
+    warning: 'ui-button-warning',
+    disabled: 'ui-button-disabled'
   },
 
   // Player status colors

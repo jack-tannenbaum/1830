@@ -13,6 +13,24 @@ import type {
 import type { StockCommand } from '../engine/commands';
 import { PrivateTradeDialog } from './PrivateTradeDialog';
 import { StockMarketDisplay } from './StockMarketDisplay';
+import { useColors } from '../styles/colors';
+import { useThemeStore } from '../store/themeStore';
+
+function corporationDisplayColor(color: string, darkMode: boolean): string {
+  if (!darkMode || !/^#[0-9a-f]{6}$/i.test(color)) return color;
+  const channels = [1, 3, 5].map((offset) => Number.parseInt(color.slice(offset, offset + 2), 16));
+  const luminance = (0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]) / 255;
+  if (luminance >= 0.14) return color;
+  const brightened = channels.map((channel) => Math.round(channel + (255 - channel) * 0.4));
+  return `#${brightened.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+}
+
+function readableTextColor(background: string): string {
+  if (!/^#[0-9a-f]{6}$/i.test(background)) return '#ffffff';
+  const channels = [1, 3, 5].map((offset) => Number.parseInt(background.slice(offset, offset + 2), 16));
+  const luminance = (0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]) / 255;
+  return luminance > 0.58 ? '#111827' : '#ffffff';
+}
 
 function makeCommandId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -53,6 +71,8 @@ const StockRound: React.FC = () => {
   const game = useGameStore((state) => state.game);
   const dispatch = useGameStore((state) => state.dispatch);
   const undo = useGameStore((state) => state.undo);
+  const colors = useColors();
+  const theme = useThemeStore((state) => state.theme);
 
   const [parByCorporation, setParByCorporation] = useState<
     Record<CorporationId, number>
@@ -80,6 +100,8 @@ const StockRound: React.FC = () => {
   const stock = game.stock;
   const currentActorId = stock.currentActorId;
   const currentPlayer = view.currentPlayer;
+  const purchaseLimitReached = stock.turn.purchaseCount > 0;
+  const purchaseLimitMessage = 'This turn already includes a purchase. Finish Turn before buying again.';
 
   const send = (
     type: StockCommand['type'],
@@ -155,15 +177,15 @@ const StockRound: React.FC = () => {
     send('stock.buyCertificate', { certificateId });
   };
 
-  const toggleSellSelection = (
+  const setSellGroupCount = (
     corporationId: CorporationId,
-    certificateId: CertificateId,
+    groupCertificateIds: CertificateId[],
+    count: number,
   ): void => {
     setSellSelectionByCorporation((previous) => {
       const current = previous[corporationId] ?? [];
-      const next = current.includes(certificateId)
-        ? current.filter((id) => id !== certificateId)
-        : [...current, certificateId];
+      const outsideGroup = current.filter((id) => !groupCertificateIds.includes(id));
+      const next = [...outsideGroup, ...groupCertificateIds.slice(0, count)];
       return { ...previous, [corporationId]: next };
     });
   };
@@ -200,20 +222,20 @@ const StockRound: React.FC = () => {
     <div className="stock-round-panel rounded-lg p-6 shadow">
       <header className="mb-6 flex items-start justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">Stock Round</h2>
-          <div className="mt-1 text-sm text-gray-600">
+          <h2 className={`text-xl font-semibold ${colors.text.primary}`}>Stock Round</h2>
+          <div className={`mt-1 text-sm ${colors.text.secondary}`}>
             Current Player: <span className="font-medium">{currentPlayer.name}</span>
           </div>
-          <div className="text-sm text-gray-600">
+          <div className={`text-sm ${colors.text.secondary}`}>
             Available Cash: <span className="font-medium">${currentPlayer.cash}</span>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="ui-actions">
           {view.mayFinishTurn && (
             <button
               type="button"
               onClick={handleFinishTurn}
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+              className={`rounded-lg px-4 py-2 text-sm font-medium ${colors.button.success}`}
             >
               Finish Turn
             </button>
@@ -222,7 +244,7 @@ const StockRound: React.FC = () => {
             <button
               type="button"
               onClick={handlePass}
-              className="rounded-md bg-gray-600 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
+              className={`rounded-lg px-4 py-2 text-sm font-medium ${colors.button.secondary}`}
             >
               Pass
             </button>
@@ -230,19 +252,36 @@ const StockRound: React.FC = () => {
           <button
             type="button"
             onClick={handleUndo}
-            className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className={`rounded-lg px-4 py-2 text-sm font-medium ${colors.button.secondary}`}
           >
             Undo
           </button>
           <button
             type="button"
             onClick={() => setShowStockMarket((visible) => !visible)}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className={`rounded-lg px-4 py-2 text-sm font-medium ${
+              showStockMarket ? colors.button.success : colors.button.primary
+            }`}
           >
             {showStockMarket ? '🏢 Corporations' : '📊 Stock Market'}
           </button>
         </div>
       </header>
+
+      {game.isFirstStockRound && !showStockMarket && (
+        <div className="ui-surface-warning mb-6 rounded-lg border p-3 text-sm">
+          <span className="font-semibold">First Stock Round:</span>{' '}
+          stock may be purchased, but it cannot be sold until the next Stock Round.
+        </div>
+      )}
+
+      {purchaseLimitReached && !showStockMarket && (
+        <div className="ui-surface-warning mb-6 rounded-lg border p-3 text-sm">
+          <span className="font-semibold">Purchase complete:</span>{' '}
+          finish this turn before buying another certificate. Brown-zone stock remains exempt
+          from the one-certificate purchase limit.
+        </div>
+      )}
 
       {showStockMarket ? (
         <StockMarketDisplay className="mb-6 w-full" />
@@ -252,6 +291,10 @@ const StockRound: React.FC = () => {
           {game.corporationOrder.map((corporationId) => {
             const corporation = game.corporations[corporationId];
             if (!corporation) return null;
+            const isDarkNyc = theme === 'dark' && corporation.id === 'NYC';
+            const displayColor = isDarkNyc
+              ? '#f0f0f0'
+              : corporationDisplayColor(corporation.color, theme === 'dark');
             const ownership = getCorporationOwnership(game, corporation.id);
             const ipoGroup = purchasableGroups.find(
               (group) => group.corporation.id === corporation.id && group.source === 'IPO',
@@ -271,75 +314,105 @@ const StockRound: React.FC = () => {
               ? STOCK_MARKET_GRID[corporation.market.row]?.[corporation.market.column] ?? null
               : null;
             const isUnstarted = corporation.lifecycle === 'unstarted';
+            const canStartCorporation = isUnstarted && !purchaseLimitReached;
             const sellableCertificateIds = sellableByCorporation.get(corporation.id) ?? [];
+            const currentPlayerCertificateCount = Object.values(game.certificates).filter(
+              (certificate) => certificate.corporationId === corporation.id
+                && certificate.location.type === 'player'
+                && certificate.location.playerId === currentActorId,
+            ).length;
+            const sellDisabledReason = game.isFirstStockRound
+              ? 'Stock cannot be sold during the first Stock Round.'
+              : currentPlayerCertificateCount === 0
+                ? `${currentPlayer.name} does not own ${corporation.abbreviation} shares.`
+                : pendingTrade
+                  ? 'Resolve the pending private-company trade first.'
+                  : 'These shares cannot currently be sold because of a stock-rule restriction.';
 
             return (
               <article
                 key={corporation.id}
                 className="rounded-lg border-2 p-4 shadow-md"
                 style={{
-                  backgroundColor: `${corporation.color}12`,
-                  borderColor: `${corporation.color}55`,
-                  boxShadow: `0 4px 6px -1px ${corporation.color}20`,
+                  backgroundColor: `${displayColor}08`,
+                  borderColor: `${displayColor}50`,
+                  boxShadow: `0 4px 6px -1px ${displayColor}20`,
                 }}
               >
                 <div className="mb-4 flex items-start justify-between">
                   <div>
-                    <div className="font-semibold text-gray-900">{corporation.abbreviation}</div>
-                    <div className="text-xs text-gray-500">{corporation.name}</div>
+                    <div className={`font-semibold ${colors.text.primary}`}>{corporation.abbreviation}</div>
+                    <div className={`text-xs ${colors.text.secondary}`}>{corporation.name}</div>
                   </div>
                   <div
-                    className="flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-xs font-bold text-white shadow-sm"
-                    style={{ backgroundColor: corporation.color }}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full p-[2px] shadow-sm"
+                    style={{
+                      backgroundColor: corporation.color,
+                    }}
                   >
-                    {corporation.abbreviation}
+                    <span
+                      className="flex h-full w-full items-center justify-center rounded-full p-[2px]"
+                      style={{
+                        backgroundColor: readableTextColor(corporation.color),
+                      }}
+                    >
+                      <span
+                        className="flex h-full w-full items-center justify-center rounded-full text-[10px] font-bold leading-none"
+                        style={{
+                          backgroundColor: corporation.color,
+                          color: readableTextColor(corporation.color),
+                        }}
+                      >
+                        {corporation.abbreviation}
+                      </span>
+                    </span>
                   </div>
                 </div>
 
                 <div className="mb-4 space-y-2 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-gray-500">IPO Pool</span>
-                    <span className="font-medium text-gray-900">{ipoShareUnits} shares</span>
+                    <span className={colors.text.secondary}>IPO Pool</span>
+                    <span className={`font-medium ${colors.text.primary}`}>{ipoShareUnits} shares</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Bank Pool</span>
-                    <span className="font-medium text-gray-900">{poolShareUnits} shares</span>
+                    <span className={colors.text.secondary}>Bank Pool</span>
+                    <span className={`font-medium ${colors.text.primary}`}>{poolShareUnits} shares</span>
                   </div>
                 </div>
 
                 <div className="mb-4 min-h-12 text-xs">
-                  <div className="mb-1 text-gray-500">Ownership</div>
+                  <div className={`mb-1 ${colors.text.secondary}`}>Ownership</div>
                   {ownership.holders.length === 0 ? (
-                    <div className="text-gray-500">No player shares</div>
+                    <div className={colors.text.secondary}>No player shares</div>
                   ) : ownership.holders.map((holder) => (
                     <div key={holder.player.id} className="flex justify-between">
-                      <span className="text-gray-500">
+                      <span className={colors.text.secondary}>
                         {holder.player.name}
                         {ownership.presidentId === holder.player.id && (
-                          <span className="ml-1 font-bold text-yellow-500">P</span>
+                          <span className={`font-bold ${colors.text.warning}`}> P</span>
                         )}
                       </span>
-                      <span className="font-medium text-gray-900">{holder.percent}%</span>
+                      <span className={`font-medium ${colors.text.primary}`}>{holder.percent}%</span>
                     </div>
                   ))}
                 </div>
 
                 <div className="mb-4 grid grid-cols-2 gap-3 text-center">
                   <div>
-                    <div className="text-xs text-gray-500">Par Value</div>
-                    <div className="text-sm font-semibold text-gray-900">
+                    <div className={`text-xs ${colors.text.secondary}`}>Par Value</div>
+                    <div className={`text-sm font-semibold ${colors.text.primary}`}>
                       {corporation.parPrice === null ? 'Not set' : `$${corporation.parPrice}`}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-gray-500">Market Price</div>
-                    <div className="text-sm font-semibold text-gray-900">
+                    <div className={`text-xs ${colors.text.secondary}`}>Market Price</div>
+                    <div className={`text-sm font-semibold ${colors.text.primary}`}>
                       {marketPrice === null ? 'Not set' : `$${marketPrice}`}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="ui-actions ui-actions-stretch">
                   <button
                     type="button"
                     onClick={() => {
@@ -353,11 +426,16 @@ const StockRound: React.FC = () => {
                         handleBuy(ipoGroup.certificateIds[0]);
                       }
                     }}
-                    disabled={!isUnstarted && !ipoGroup}
-                    className={`flex-1 rounded px-2 py-2 text-xs font-medium text-white ${
-                      isUnstarted || ipoGroup
-                        ? 'bg-green-600 hover:bg-green-700'
-                        : 'bg-gray-300'
+                    disabled={isUnstarted ? !canStartCorporation : !ipoGroup}
+                    title={isUnstarted && purchaseLimitReached
+                      ? purchaseLimitMessage
+                      : !isUnstarted && !ipoGroup && purchaseLimitReached
+                        ? purchaseLimitMessage
+                        : undefined}
+                    className={`flex-1 rounded px-2 py-2 text-xs font-medium ${
+                      canStartCorporation || ipoGroup
+                        ? colors.button.success
+                        : colors.button.disabled
                     }`}
                   >
                     Buy IPO
@@ -367,8 +445,9 @@ const StockRound: React.FC = () => {
                     onClick={() => poolGroup?.certificateIds[0]
                       && handleBuy(poolGroup.certificateIds[0])}
                     disabled={!poolGroup}
-                    className={`flex-1 rounded px-2 py-2 text-xs font-medium text-white ${
-                      poolGroup ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300'
+                    title={!poolGroup && purchaseLimitReached ? purchaseLimitMessage : undefined}
+                    className={`flex-1 rounded px-2 py-2 text-xs font-medium ${
+                      poolGroup ? colors.button.primary : colors.button.disabled
                     }`}
                   >
                     Buy Bank
@@ -378,11 +457,13 @@ const StockRound: React.FC = () => {
                   type="button"
                   onClick={() => setSelectedSellCorporationId(corporation.id)}
                   disabled={sellableCertificateIds.length === 0}
-                  className={`mt-2 w-full rounded px-3 py-2 text-xs font-medium text-white ${
+                  title={sellableCertificateIds.length > 0 ? `Sell ${corporation.abbreviation} shares` : sellDisabledReason}
+                  className={`w-full rounded px-3 py-2 text-xs font-medium ${
                     sellableCertificateIds.length > 0
-                      ? 'bg-gray-600 hover:bg-gray-700'
-                      : 'bg-gray-300'
+                      ? colors.button.secondary
+                      : colors.button.disabled
                   }`}
+                  style={{ marginTop: 'var(--control-gap)' }}
                 >
                   Sell
                 </button>
@@ -396,6 +477,7 @@ const StockRound: React.FC = () => {
       {selectedStartCorporation && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          style={{ inset: 0, backgroundColor: 'rgb(0 0 0 / 0.6)' }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="par-value-title"
@@ -415,7 +497,10 @@ const StockRound: React.FC = () => {
               Choose the initial share price. Starting the corporation buys its
               20% president certificate at twice this value.
             </p>
-            <div className="mb-5 grid grid-cols-3 gap-2">
+            <div
+              className="grid grid-cols-3 gap-2"
+              style={{ marginBottom: 'calc(var(--control-gap) * 1.5)' }}
+            >
               {PAR_VALUES.map((parPrice) => {
                 const selected = (parByCorporation[selectedStartCorporation.id] ?? 100) === parPrice;
                 return (
@@ -427,7 +512,7 @@ const StockRound: React.FC = () => {
                       [selectedStartCorporation.id]: parPrice,
                     }))}
                     className={`rounded-md border px-3 py-3 text-sm font-medium ${
-                      selected ? 'bg-blue-600 text-white' : ''
+                      selected ? colors.button.primary : colors.card.backgroundAlt
                     }`}
                     style={selected ? undefined : { borderColor: 'var(--border-color-alt, var(--border-color))' }}
                   >
@@ -436,19 +521,24 @@ const StockRound: React.FC = () => {
                 );
               })}
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="ui-actions justify-end">
               <button
                 type="button"
                 onClick={() => setSelectedStartCorporationId(null)}
-                className="rounded-md border px-4 py-2 text-sm font-medium"
-                style={{ borderColor: 'var(--border-color-alt, var(--border-color))' }}
+                className={`rounded-md px-4 py-2 text-sm font-medium ${colors.button.secondary}`}
+                style={{ minHeight: 42 }}
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={() => handleStart(selectedStartCorporation.id)}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                disabled={purchaseLimitReached}
+                title={purchaseLimitReached ? purchaseLimitMessage : undefined}
+                className={`rounded-md px-4 py-2 text-sm font-medium ${
+                  purchaseLimitReached ? colors.button.disabled : colors.button.primary
+                }`}
+                style={{ minHeight: 42 }}
               >
                 Start Corporation
               </button>
@@ -462,9 +552,18 @@ const StockRound: React.FC = () => {
         const certificateIds = sellableByCorporation.get(selectedSellCorporationId) ?? [];
         const selection = sellSelectionByCorporation[selectedSellCorporationId] ?? [];
         if (!corporation || certificateIds.length === 0) return null;
+        const groupsByType = new Map<string, CertificateId[]>();
+        for (const certificateId of certificateIds) {
+          const certificate = game.certificates[certificateId];
+          if (!certificate) continue;
+          const key = `${certificate.percent}:${certificate.isPresident ? 'president' : 'ordinary'}`;
+          groupsByType.set(key, [...(groupsByType.get(key) ?? []), certificateId]);
+        }
+        const sellGroups = Array.from(groupsByType.values());
         return (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+            style={{ inset: 0, backgroundColor: 'rgb(0 0 0 / 0.6)' }}
             role="dialog"
             aria-modal="true"
             aria-labelledby="sell-certificate-title"
@@ -481,34 +580,57 @@ const StockRound: React.FC = () => {
                 Sell {corporation.abbreviation} certificates
               </h3>
               <p className="mb-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
-                Select the exact certificates to place in the Bank Pool.
+                Choose how many shares to place in the Bank Pool.
               </p>
-              <ul className="mb-5 space-y-2">
-                {certificateIds.map((certificateId) => {
-                  const certificate = game.certificates[certificateId];
+              <ul
+                className="space-y-2"
+                style={{ marginBottom: 'calc(var(--control-gap) * 1.5)' }}
+              >
+                {sellGroups.map((groupCertificateIds) => {
+                  const certificate = game.certificates[groupCertificateIds[0]];
+                  if (!certificate) return null;
+                  const selectedCount = groupCertificateIds.filter((id) => selection.includes(id)).length;
                   return (
-                    <li key={certificateId}>
-                      <label className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={selection.includes(certificateId)}
-                          onChange={() => toggleSellSelection(corporation.id, certificateId)}
-                        />
-                        <span>
-                          {certificateId} — {certificate?.percent ?? 0}%
-                          {certificate?.isPresident ? ' (president)' : ''}
-                        </span>
-                      </label>
+                    <li
+                      key={`${certificate.percent}:${certificate.isPresident ? 'president' : 'ordinary'}`}
+                      className="flex items-center justify-between rounded-md border p-3"
+                      style={{ borderColor: 'var(--border-color)' }}
+                    >
+                      <div className="text-sm">
+                        <div className="font-medium">
+                          {certificate.percent}% {certificate.isPresident ? "President's certificate" : 'shares'}
+                        </div>
+                        <div className={colors.text.secondary}>Available: {groupCertificateIds.length}</div>
+                      </div>
+                      <div className="ui-actions">
+                        <button
+                          type="button"
+                          disabled={selectedCount === 0}
+                          onClick={() => setSellGroupCount(corporation.id, groupCertificateIds, selectedCount - 1)}
+                          className={`h-9 w-9 rounded ${selectedCount > 0 ? colors.button.secondary : colors.button.disabled}`}
+                        >
+                          −
+                        </button>
+                        <span className="min-w-8 text-center font-semibold">{selectedCount}</span>
+                        <button
+                          type="button"
+                          disabled={selectedCount === groupCertificateIds.length}
+                          onClick={() => setSellGroupCount(corporation.id, groupCertificateIds, selectedCount + 1)}
+                          className={`h-9 w-9 rounded ${selectedCount < groupCertificateIds.length ? colors.button.secondary : colors.button.disabled}`}
+                        >
+                          +
+                        </button>
+                      </div>
                     </li>
                   );
                 })}
               </ul>
-              <div className="flex justify-end gap-2">
+              <div className="ui-actions justify-end">
                 <button
                   type="button"
                   onClick={() => setSelectedSellCorporationId(null)}
-                  className="rounded-md border px-4 py-2 text-sm font-medium"
-                  style={{ borderColor: 'var(--border-color-alt, var(--border-color))' }}
+                  className={`rounded-md px-4 py-2 text-sm font-medium ${colors.button.secondary}`}
+                  style={{ minHeight: 42 }}
                 >
                   Cancel
                 </button>
@@ -519,9 +641,10 @@ const StockRound: React.FC = () => {
                     handleSell(corporation.id);
                     setSelectedSellCorporationId(null);
                   }}
-                  className={`rounded-md px-4 py-2 text-sm font-medium text-white ${
-                    selection.length > 0 ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-300'
+                  className={`rounded-md px-4 py-2 text-sm font-medium ${
+                    selection.length > 0 ? colors.button.danger : colors.button.disabled
                   }`}
+                  style={{ minHeight: 42 }}
                 >
                   Sell selected
                 </button>
@@ -532,11 +655,11 @@ const StockRound: React.FC = () => {
       })()}
 
       <section className="mb-6">
-        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className={`mb-2 text-sm font-semibold uppercase tracking-wide ${colors.text.secondary}`}>
           Private Trade
         </h3>
         {pendingTrade ? (
-          <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <div className="ui-surface-warning rounded border p-3 text-sm">
             <div>
               <span className="font-medium">Pending trade:</span>{' '}
               {pendingTrade.privateId}
@@ -549,7 +672,7 @@ const StockRound: React.FC = () => {
                 pendingTrade.buyerId}
             </div>
             <div>Price: ${pendingTrade.price}</div>
-            <div className="mt-1 text-xs text-amber-800">
+            <div className={`mt-1 text-xs ${colors.text.secondary}`}>
               Awaiting response from{' '}
               {game.players[pendingTrade.responderId]?.name ??
                 pendingTrade.responderId}
@@ -560,12 +683,12 @@ const StockRound: React.FC = () => {
           <button
             type="button"
             onClick={() => setTradeDialogOpen(true)}
-            className="rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700"
+            className={`rounded-md px-3 py-1 text-sm font-medium ${colors.button.primary}`}
           >
             Propose private trade
           </button>
         ) : (
-          <div className="text-sm text-gray-500">
+          <div className={`text-sm ${colors.text.secondary}`}>
             No open privates available to trade.
           </div>
         )}

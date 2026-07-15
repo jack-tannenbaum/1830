@@ -83,6 +83,7 @@ export const PrivateAuction: React.FC = () => {
 
   const handlePass = () => {
     send(currentPlayer.id, { type: 'auction.pass', payload: {} });
+    setRaiseAmount(null);
   };
 
   const handleSetBOPar = (parPrice: number) => {
@@ -195,7 +196,7 @@ export const PrivateAuction: React.FC = () => {
         </div>
 
         <div className="flex flex-col gap-4 max-w-md mx-auto">
-          <div className="flex items-center gap-2">
+          <div className="ui-actions">
             <button
               onClick={() => adjustRaiseAmount(-5)}
               disabled={!actions.mayRaiseBid || currentRaise <= minimum}
@@ -242,7 +243,7 @@ export const PrivateAuction: React.FC = () => {
 
         <div className={`mt-6 text-center text-sm ${colors.text.tertiary}`}>
           <p>Minimum bid: ${minimum}</p>
-          <p>All tied players must bid or pass. Last bidder wins!</p>
+          <p>Original bidders must raise or pass. Last bidder wins!</p>
         </div>
       </div>
     );
@@ -360,7 +361,7 @@ export const PrivateAuction: React.FC = () => {
                   </button>
                 ) : (
                   <div>
-                    <div className="flex items-center gap-1 mb-2">
+                    <div className="ui-actions mb-2">
                       <button
                         onClick={() => adjustAdvanceBid(pc.id, -5)}
                         disabled={!canAdvanceBid || currentBidAmount <= minimum}
