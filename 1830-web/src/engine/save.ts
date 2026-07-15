@@ -88,6 +88,7 @@ function isPrivate(value: unknown): boolean {
     && isInteger(value.faceValue)
     && isInteger(value.revenue)
     && isInteger(value.offeredPrice)
+    && (value.purchasePrice === undefined || isInteger(value.purchasePrice))
     && isPrivateLocation(value.location);
 }
 

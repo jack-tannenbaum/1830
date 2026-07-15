@@ -169,6 +169,7 @@ export function executeRespondPrivateTrade(
       ...state.privates,
       [privateCompany.id]: {
         ...privateCompany,
+        purchasePrice: pending.price,
         location: { type: "player", playerId: buyer.id },
       },
     },

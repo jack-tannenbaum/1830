@@ -7,6 +7,8 @@ import { OperatingShell } from './OperatingShell';
 import { MilestoneStoppedPanel } from './MilestoneStoppedPanel';
 import { useThemeStore } from '../store/themeStore';
 import { useColors } from '../styles/colors';
+import { GameSidebar } from './GameSidebar';
+import { TurnDisplay } from './TurnDisplay';
 
 /**
  * GameBoard is a thin router keyed on the canonical `game.round` field.
@@ -47,6 +49,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({ onReturnToMenu }) => {
             </p>
           </div>
           <div className="ui-actions">
+            <TurnDisplay game={game} />
             <button
               type="button"
               onClick={onReturnToMenu}
@@ -67,15 +70,20 @@ export const GameBoard: React.FC<GameBoardProps> = ({ onReturnToMenu }) => {
       </header>
 
       <main className="mx-auto max-w-7xl p-4">
-        {game.round === 'privateAuction' && (
-          <>
-            <PrivateAuction />
-            <AuctionSummary />
-          </>
-        )}
-        {game.round === 'stock' && <StockRound />}
-        {game.round === 'operatingShell' && <OperatingShell />}
-        {game.round === 'milestoneStopped' && <MilestoneStoppedPanel />}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+          <div className="min-w-0 space-y-4 lg:col-span-3">
+            {game.round === 'privateAuction' && (
+              <>
+                <PrivateAuction />
+                <AuctionSummary />
+              </>
+            )}
+            {game.round === 'stock' && <StockRound />}
+            {game.round === 'operatingShell' && <OperatingShell />}
+            {game.round === 'milestoneStopped' && <MilestoneStoppedPanel />}
+          </div>
+          <GameSidebar game={game} />
+        </div>
       </main>
     </div>
   );

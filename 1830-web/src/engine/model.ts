@@ -48,6 +48,7 @@ export interface PrivateState {
   faceValue: number;
   revenue: number;
   offeredPrice: number;
+  purchasePrice?: number;
   location: PrivateLocation;
 }
 

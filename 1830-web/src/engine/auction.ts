@@ -91,7 +91,11 @@ function transferPrivate(
     players: { ...state.players, [buyerId]: { ...buyer, cash: buyer.cash - price } },
     privates: {
       ...state.privates,
-      [privateId]: { ...privateCompany, location: { type: "player", playerId: buyerId } },
+      [privateId]: {
+        ...privateCompany,
+        purchasePrice: price,
+        location: { type: "player", playerId: buyerId },
+      },
     },
     certificates,
     bankCash: state.bankCash + price,

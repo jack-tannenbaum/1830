@@ -121,6 +121,29 @@ body {
   flex: 1 1 0%;
 }
 
+.operating-details-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.operating-corp-header {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .operating-details-grid {
+    grid-template-columns: 14rem minmax(0, 1fr);
+  }
+
+  .operating-corp-header {
+    align-items: center;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
+
 .ui-button-primary:focus-visible,
 .ui-button-secondary:focus-visible,
 .ui-button-success:focus-visible,
