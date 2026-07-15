@@ -12,6 +12,7 @@ import type {
 } from '../engine/model';
 import type { StockCommand } from '../engine/commands';
 import { PrivateTradeDialog } from './PrivateTradeDialog';
+import { StockMarketDisplay } from './StockMarketDisplay';
 
 function makeCommandId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -59,7 +60,10 @@ const StockRound: React.FC = () => {
   const [sellSelectionByCorporation, setSellSelectionByCorporation] = useState<
     Record<CorporationId, CertificateId[]>
   >({});
+  const [selectedStartCorporationId, setSelectedStartCorporationId] = useState<CorporationId | null>(null);
+  const [selectedSellCorporationId, setSelectedSellCorporationId] = useState<CorporationId | null>(null);
   const [tradeDialogOpen, setTradeDialogOpen] = useState(false);
+  const [showStockMarket, setShowStockMarket] = useState(false);
 
   const view = useMemo(
     () =>
@@ -91,10 +95,6 @@ const StockRound: React.FC = () => {
     } as StockCommand);
   };
 
-  const unstartedCorporations = Object.values(game.corporations)
-    .filter((corporation) => corporation.lifecycle === 'unstarted')
-    .sort((left, right) => left.abbreviation.localeCompare(right.abbreviation));
-
   const purchasableRows = view.purchasableCertificateIds
     .map((certificateId) => {
       const certificate = game.certificates[certificateId];
@@ -114,6 +114,22 @@ const StockRound: React.FC = () => {
     .filter(
       (row): row is NonNullable<typeof row> => row !== null,
     );
+  const rowsByBuyGroup = new Map<string, typeof purchasableRows>();
+  for (const row of purchasableRows) {
+    const groupKey = [
+      row.corporation.id,
+      row.source,
+      row.percent,
+      row.isPresident ? 'president' : 'ordinary',
+      row.price ?? 'unpriced',
+    ].join(':');
+    rowsByBuyGroup.set(groupKey, [...(rowsByBuyGroup.get(groupKey) ?? []), row]);
+  }
+  const purchasableGroups = Array.from(rowsByBuyGroup.entries()).map(([groupKey, rows]) => ({
+    ...rows[0],
+    groupKey,
+    certificateIds: rows.map((row) => row.certificateId),
+  }));
 
   const sellableByCorporation = new Map<CorporationId, CertificateId[]>();
   for (const certificateId of view.sellableCertificateIds) {
@@ -130,8 +146,9 @@ const StockRound: React.FC = () => {
   );
 
   const handleStart = (corporationId: CorporationId): void => {
-    const parPrice = parByCorporation[corporationId] ?? PAR_VALUES[0];
+    const parPrice = parByCorporation[corporationId] ?? 100;
     send('stock.startCorporation', { corporationId, parPrice });
+    setSelectedStartCorporationId(null);
   };
 
   const handleBuy = (certificateId: CertificateId): void => {
@@ -175,9 +192,12 @@ const StockRound: React.FC = () => {
 
   const pendingTrade = view.pendingPrivateTrade;
   const tradeDialogVisible = tradeDialogOpen || pendingTrade !== null;
+  const selectedStartCorporation = selectedStartCorporationId
+    ? game.corporations[selectedStartCorporationId] ?? null
+    : null;
 
   return (
-    <div className="rounded-lg bg-white p-6 shadow">
+    <div className="stock-round-panel rounded-lg p-6 shadow">
       <header className="mb-6 flex items-start justify-between">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">Stock Round</h2>
@@ -214,192 +234,302 @@ const StockRound: React.FC = () => {
           >
             Undo
           </button>
+          <button
+            type="button"
+            onClick={() => setShowStockMarket((visible) => !visible)}
+            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            {showStockMarket ? '🏢 Corporations' : '📊 Stock Market'}
+          </button>
         </div>
       </header>
 
+      {showStockMarket ? (
+        <StockMarketDisplay className="mb-6 w-full" />
+      ) : (
       <section className="mb-6">
-        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Start Corporation
-        </h3>
-        {unstartedCorporations.length === 0 ? (
-          <div className="text-sm text-gray-500">
-            No unparred corporations remain.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {unstartedCorporations.map((corporation) => {
-              const selected =
-                parByCorporation[corporation.id] ?? PAR_VALUES[0];
-              return (
-                <div
-                  key={corporation.id}
-                  className="rounded border border-gray-200 p-3"
-                >
-                  <div className="mb-2 flex items-center justify-between">
-                    <div>
-                      <div className="font-semibold text-gray-900">
-                        {corporation.abbreviation}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {corporation.name}
-                      </div>
-                    </div>
-                    <span
-                      className="inline-block h-4 w-4 rounded"
-                      style={{ backgroundColor: corporation.color }}
-                    />
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {game.corporationOrder.map((corporationId) => {
+            const corporation = game.corporations[corporationId];
+            if (!corporation) return null;
+            const ownership = getCorporationOwnership(game, corporation.id);
+            const ipoGroup = purchasableGroups.find(
+              (group) => group.corporation.id === corporation.id && group.source === 'IPO',
+            );
+            const poolGroup = purchasableGroups.find(
+              (group) => group.corporation.id === corporation.id && group.source === 'Bank Pool',
+            );
+            const ipoShareUnits = Object.values(game.certificates)
+              .filter((certificate) => certificate.corporationId === corporation.id
+                && certificate.location.type === 'initialOffering')
+              .reduce((total, certificate) => total + certificate.percent / 10, 0);
+            const poolShareUnits = Object.values(game.certificates)
+              .filter((certificate) => certificate.corporationId === corporation.id
+                && certificate.location.type === 'bankPool')
+              .reduce((total, certificate) => total + certificate.percent / 10, 0);
+            const marketPrice = corporation.market
+              ? STOCK_MARKET_GRID[corporation.market.row]?.[corporation.market.column] ?? null
+              : null;
+            const isUnstarted = corporation.lifecycle === 'unstarted';
+            const sellableCertificateIds = sellableByCorporation.get(corporation.id) ?? [];
+
+            return (
+              <article
+                key={corporation.id}
+                className="rounded-lg border-2 p-4 shadow-md"
+                style={{
+                  backgroundColor: `${corporation.color}12`,
+                  borderColor: `${corporation.color}55`,
+                  boxShadow: `0 4px 6px -1px ${corporation.color}20`,
+                }}
+              >
+                <div className="mb-4 flex items-start justify-between">
+                  <div>
+                    <div className="font-semibold text-gray-900">{corporation.abbreviation}</div>
+                    <div className="text-xs text-gray-500">{corporation.name}</div>
                   </div>
-                  <label className="block text-xs text-gray-500">
-                    Par Price
-                  </label>
-                  <select
-                    value={selected}
-                    onChange={(event) =>
-                      setParByCorporation((previous) => ({
-                        ...previous,
-                        [corporation.id]: Number(event.target.value),
-                      }))
-                    }
-                    className="mb-2 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  <div
+                    className="flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-xs font-bold text-white shadow-sm"
+                    style={{ backgroundColor: corporation.color }}
                   >
-                    {PAR_VALUES.map((par) => (
-                      <option key={par} value={par}>
-                        ${par}
-                      </option>
-                    ))}
-                  </select>
+                    {corporation.abbreviation}
+                  </div>
+                </div>
+
+                <div className="mb-4 space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">IPO Pool</span>
+                    <span className="font-medium text-gray-900">{ipoShareUnits} shares</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Bank Pool</span>
+                    <span className="font-medium text-gray-900">{poolShareUnits} shares</span>
+                  </div>
+                </div>
+
+                <div className="mb-4 min-h-12 text-xs">
+                  <div className="mb-1 text-gray-500">Ownership</div>
+                  {ownership.holders.length === 0 ? (
+                    <div className="text-gray-500">No player shares</div>
+                  ) : ownership.holders.map((holder) => (
+                    <div key={holder.player.id} className="flex justify-between">
+                      <span className="text-gray-500">
+                        {holder.player.name}
+                        {ownership.presidentId === holder.player.id && (
+                          <span className="ml-1 font-bold text-yellow-500">P</span>
+                        )}
+                      </span>
+                      <span className="font-medium text-gray-900">{holder.percent}%</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mb-4 grid grid-cols-2 gap-3 text-center">
+                  <div>
+                    <div className="text-xs text-gray-500">Par Value</div>
+                    <div className="text-sm font-semibold text-gray-900">
+                      {corporation.parPrice === null ? 'Not set' : `$${corporation.parPrice}`}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">Market Price</div>
+                    <div className="text-sm font-semibold text-gray-900">
+                      {marketPrice === null ? 'Not set' : `$${marketPrice}`}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => handleStart(corporation.id)}
-                    className="w-full rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
+                    onClick={() => {
+                      if (isUnstarted) {
+                        setParByCorporation((previous) => ({
+                          ...previous,
+                          [corporation.id]: previous[corporation.id] ?? 100,
+                        }));
+                        setSelectedStartCorporationId(corporation.id);
+                      } else if (ipoGroup?.certificateIds[0]) {
+                        handleBuy(ipoGroup.certificateIds[0]);
+                      }
+                    }}
+                    disabled={!isUnstarted && !ipoGroup}
+                    className={`flex-1 rounded px-2 py-2 text-xs font-medium text-white ${
+                      isUnstarted || ipoGroup
+                        ? 'bg-green-600 hover:bg-green-700'
+                        : 'bg-gray-300'
+                    }`}
                   >
-                    Start {corporation.abbreviation}
+                    Buy IPO
                   </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      <section className="mb-6">
-        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Buy Certificates
-        </h3>
-        {purchasableRows.length === 0 ? (
-          <div className="text-sm text-gray-500">
-            No certificates are purchasable right now.
-          </div>
-        ) : (
-          <ul className="divide-y divide-gray-200">
-            {purchasableRows.map((row) => (
-              <li
-                key={row.certificateId}
-                className="flex items-center justify-between py-2"
-              >
-                <div>
-                  <div className="text-sm font-medium text-gray-900">
-                    {row.corporation.abbreviation}{' '}
-                    <span className="text-gray-500">
-                      ({row.percent}%
-                      {row.isPresident ? ', president' : ''})
-                    </span>
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {row.source}
-                    {row.price !== null ? ` — $${row.price}` : ''}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => poolGroup?.certificateIds[0]
+                      && handleBuy(poolGroup.certificateIds[0])}
+                    disabled={!poolGroup}
+                    className={`flex-1 rounded px-2 py-2 text-xs font-medium text-white ${
+                      poolGroup ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300'
+                    }`}
+                  >
+                    Buy Bank
+                  </button>
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleBuy(row.certificateId)}
-                  className="rounded-md bg-emerald-600 px-3 py-1 text-sm font-medium text-white hover:bg-emerald-700"
+                  onClick={() => setSelectedSellCorporationId(corporation.id)}
+                  disabled={sellableCertificateIds.length === 0}
+                  className={`mt-2 w-full rounded px-3 py-2 text-xs font-medium text-white ${
+                    sellableCertificateIds.length > 0
+                      ? 'bg-gray-600 hover:bg-gray-700'
+                      : 'bg-gray-300'
+                  }`}
                 >
-                  Buy
+                  Sell
                 </button>
-              </li>
-            ))}
-          </ul>
-        )}
+              </article>
+            );
+          })}
+        </div>
       </section>
+      )}
 
-      <section className="mb-6">
-        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Sell Certificates
-        </h3>
-        {sellableByCorporation.size === 0 ? (
-          <div className="text-sm text-gray-500">
-            No certificates are sellable right now.
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {Array.from(sellableByCorporation.entries())
-              .sort(([leftId], [rightId]) => leftId.localeCompare(rightId))
-              .map(([corporationId, certificateIds]) => {
-                const corporation = game.corporations[corporationId];
-                const ownership = getCorporationOwnership(game, corporationId);
-                const selection =
-                  sellSelectionByCorporation[corporationId] ?? [];
+      {selectedStartCorporation && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="par-value-title"
+        >
+          <div
+            className="w-full max-w-md rounded-lg border p-6 shadow-2xl"
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              borderColor: 'var(--border-color-alt, var(--border-color))',
+              color: 'var(--text-primary)',
+            }}
+          >
+            <h3 id="par-value-title" className="mb-2 text-xl font-semibold">
+              Set Par Value for {selectedStartCorporation.name}
+            </h3>
+            <p className="mb-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
+              Choose the initial share price. Starting the corporation buys its
+              20% president certificate at twice this value.
+            </p>
+            <div className="mb-5 grid grid-cols-3 gap-2">
+              {PAR_VALUES.map((parPrice) => {
+                const selected = (parByCorporation[selectedStartCorporation.id] ?? 100) === parPrice;
                 return (
-                  <div
-                    key={corporationId}
-                    className="rounded border border-gray-200 p-3"
+                  <button
+                    key={parPrice}
+                    type="button"
+                    onClick={() => setParByCorporation((previous) => ({
+                      ...previous,
+                      [selectedStartCorporation.id]: parPrice,
+                    }))}
+                    className={`rounded-md border px-3 py-3 text-sm font-medium ${
+                      selected ? 'bg-blue-600 text-white' : ''
+                    }`}
+                    style={selected ? undefined : { borderColor: 'var(--border-color-alt, var(--border-color))' }}
                   >
-                    <div className="mb-2 flex items-center justify-between">
-                      <div>
-                        <div className="font-semibold text-gray-900">
-                          {corporation?.abbreviation ?? corporationId}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          Pool: {ownership.poolPercent}% • Sold this round:{' '}
-                          {ownership.soldCertificateCount}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleSell(corporationId)}
-                        disabled={selection.length === 0}
-                        className={`rounded-md px-3 py-1 text-sm font-medium text-white ${
-                          selection.length === 0
-                            ? 'bg-gray-300'
-                            : 'bg-rose-600 hover:bg-rose-700'
-                        }`}
-                      >
-                        Sell {selection.length > 0 ? `(${selection.length})` : ''}
-                      </button>
-                    </div>
-                    <ul className="space-y-1">
-                      {certificateIds.map((certificateId) => {
-                        const certificate = game.certificates[certificateId];
-                        const checked = selection.includes(certificateId);
-                        return (
-                          <li key={certificateId}>
-                            <label className="flex items-center space-x-2 text-sm text-gray-700">
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={() =>
-                                  toggleSellSelection(
-                                    corporationId,
-                                    certificateId,
-                                  )
-                                }
-                              />
-                              <span>
-                                {certificateId} — {certificate?.percent ?? 0}%
-                                {certificate?.isPresident ? ' (president)' : ''}
-                              </span>
-                            </label>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
+                    ${parPrice}
+                  </button>
                 );
               })}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedStartCorporationId(null)}
+                className="rounded-md border px-4 py-2 text-sm font-medium"
+                style={{ borderColor: 'var(--border-color-alt, var(--border-color))' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleStart(selectedStartCorporation.id)}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                Start Corporation
+              </button>
+            </div>
           </div>
-        )}
-      </section>
+        </div>
+      )}
+
+      {selectedSellCorporationId && (() => {
+        const corporation = game.corporations[selectedSellCorporationId];
+        const certificateIds = sellableByCorporation.get(selectedSellCorporationId) ?? [];
+        const selection = sellSelectionByCorporation[selectedSellCorporationId] ?? [];
+        if (!corporation || certificateIds.length === 0) return null;
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sell-certificate-title"
+          >
+            <div
+              className="w-full max-w-md rounded-lg border p-6 shadow-2xl"
+              style={{
+                backgroundColor: 'var(--bg-card)',
+                borderColor: 'var(--border-color-alt, var(--border-color))',
+                color: 'var(--text-primary)',
+              }}
+            >
+              <h3 id="sell-certificate-title" className="mb-2 text-xl font-semibold">
+                Sell {corporation.abbreviation} certificates
+              </h3>
+              <p className="mb-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                Select the exact certificates to place in the Bank Pool.
+              </p>
+              <ul className="mb-5 space-y-2">
+                {certificateIds.map((certificateId) => {
+                  const certificate = game.certificates[certificateId];
+                  return (
+                    <li key={certificateId}>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={selection.includes(certificateId)}
+                          onChange={() => toggleSellSelection(corporation.id, certificateId)}
+                        />
+                        <span>
+                          {certificateId} — {certificate?.percent ?? 0}%
+                          {certificate?.isPresident ? ' (president)' : ''}
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedSellCorporationId(null)}
+                  className="rounded-md border px-4 py-2 text-sm font-medium"
+                  style={{ borderColor: 'var(--border-color-alt, var(--border-color))' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={selection.length === 0}
+                  onClick={() => {
+                    handleSell(corporation.id);
+                    setSelectedSellCorporationId(null);
+                  }}
+                  className={`rounded-md px-4 py-2 text-sm font-medium text-white ${
+                    selection.length > 0 ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-300'
+                  }`}
+                >
+                  Sell selected
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <section className="mb-6">
         <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">

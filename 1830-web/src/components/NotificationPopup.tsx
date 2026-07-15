@@ -1,11 +1,43 @@
+import { useEffect } from 'react';
+
+import type { UiNotification } from '../engine/adapter-contracts';
 import { useGameStore } from '../store/gameStore';
 
-const LEVEL_STYLES = {
-  info: 'bg-blue-100 border-blue-500 text-blue-900 dark:bg-blue-900 dark:text-blue-100',
-  success: 'bg-green-100 border-green-500 text-green-900 dark:bg-green-900 dark:text-green-100',
-  warning: 'bg-yellow-100 border-yellow-500 text-yellow-900 dark:bg-yellow-900 dark:text-yellow-100',
-  error: 'bg-red-100 border-red-500 text-red-900 dark:bg-red-900 dark:text-red-100',
-} as const;
+const MAX_VISIBLE_NOTIFICATIONS = 4;
+
+function NotificationToast({
+  notification,
+  dismiss,
+}: {
+  notification: UiNotification;
+  dismiss: (notificationId: string) => void;
+}) {
+  useEffect(() => {
+    const timeout = window.setTimeout(
+      () => dismiss(notification.id),
+      notification.type === 'error' ? 10_000 : 6_000,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [dismiss, notification.id, notification.type]);
+
+  return (
+    <div
+      role={notification.type === 'error' ? 'alert' : 'status'}
+      className="notification-toast flex items-start justify-between rounded-lg border-l-4 p-4 shadow-lg"
+      data-level={notification.type}
+    >
+      <div className="flex-1 break-words pr-2 text-sm">{notification.message}</div>
+      <button
+        type="button"
+        onClick={() => dismiss(notification.id)}
+        aria-label="Dismiss notification"
+        className="ml-2 text-lg leading-none opacity-70 hover:opacity-100"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
 
 export function NotificationPopup() {
   const notifications = useGameStore((state) => state.notifications);
@@ -14,6 +46,12 @@ export function NotificationPopup() {
   if (notifications.length === 0) {
     return null;
   }
+
+  const visibleNotifications = notifications.slice(-MAX_VISIBLE_NOTIFICATIONS);
+  const hiddenCount = notifications.length - visibleNotifications.length;
+  const clearAll = () => {
+    notifications.forEach((notification) => dismissNotification(notification.id));
+  };
 
   return (
     <div
@@ -25,22 +63,28 @@ export function NotificationPopup() {
         maxWidth: 'calc(100vw - 40px)',
       }}
     >
-      {notifications.map((notification) => (
-        <div
-          key={notification.id}
-          role="status"
-          className={`flex items-start justify-between rounded-lg border-l-4 shadow-lg p-4 ${LEVEL_STYLES[notification.type]}`}
+      <div className="flex items-center justify-between px-1 text-xs">
+        <span style={{ color: 'var(--text-secondary)' }}>
+          {hiddenCount > 0 ? `${hiddenCount} earlier hidden` : 'Notifications'}
+        </span>
+        <button
+          type="button"
+          onClick={clearAll}
+          className="rounded px-2 py-1 font-medium"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            color: 'var(--text-primary)',
+          }}
         >
-          <div className="text-sm flex-1 pr-2 break-words">{notification.message}</div>
-          <button
-            type="button"
-            onClick={() => dismissNotification(notification.id)}
-            aria-label="Dismiss notification"
-            className="ml-2 text-lg leading-none opacity-70 hover:opacity-100"
-          >
-            ×
-          </button>
-        </div>
+          Clear all
+        </button>
+      </div>
+      {visibleNotifications.map((notification) => (
+        <NotificationToast
+          key={notification.id}
+          notification={notification}
+          dismiss={dismissNotification}
+        />
       ))}
     </div>
   );

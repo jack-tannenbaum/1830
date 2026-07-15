@@ -123,7 +123,7 @@ export const StockMarketDisplay: React.FC<StockMarketDisplayProps> = ({ classNam
   return (
     <div className={`${colors.gameBoard.stockMarket.background} p-4 rounded-lg ${className}`}>
       <div
-        className="grid gap-1 text-xs"
+        className="stock-market-grid grid"
         style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
       >
         {cellNodes}
