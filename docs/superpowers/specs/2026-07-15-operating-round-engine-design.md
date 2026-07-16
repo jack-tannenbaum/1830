@@ -169,8 +169,9 @@ table transcription.
   action, but it expires when that turn's station step is finished.
 - When the Bank first cannot meet a payment, the final-round deadline latches,
   but play must continue with full spending power as required by saved rule 25
-  and PDF section 7.0. The engine may record audit obligations, but it may not
-  make an earned payment non-spendable or create a false bankruptcy.
+  and PDF section 7.0. Full credits are represented by allowing Bank cash to go
+  negative; the engine may not make an earned payment non-spendable or create a
+  false bankruptcy.
 - PDF section 6.6.3 supplies an omitted emergency-financing clarification: if a
   presidency change cancels the contemplated intercorporate train sale, restore
   the entire state to the beginning of that train-buying step.
@@ -1225,6 +1226,11 @@ The president may first complete any normal legal purchase, including an agreed
 purchase from another corporation. If the requirement remains unresolved, the
 forced sequence begins.
 
+`finishTrainBuying` is the single transition into this state. It stores an
+immutable checkpoint from the beginning of the train-buying step and the exact
+active corporation/president. There is no separate client command that merely
+asserts emergency financing is required.
+
 ### 16.3 Corporation funds
 
 If buying from the Bank during the forced sequence, the corporation must choose
@@ -1251,47 +1257,75 @@ expense.
 
 ### 16.5 Forced sales
 
-If combined cash is still insufficient, enter serialized emergency financing.
-The president chooses legal sales in an order that raises only enough to reach a
-forced purchase:
+If combined cash is still insufficient, the pending forced-purchase state
+collects a deterministic liquidation plan. It does not mutate canonical money,
+certificates, markets, or presidencies until an exact train purchase or
+bankruptcy command commits the plan.
 
-- Sell player-owned stock at the pre-movement market price.
-- Apply normal Pool 50% limits and downward market movement.
-- Do not permit a sale that changes presidency of the trainless corporation.
-- Apply presidency changes in other corporations immediately.
-- Permit mutually agreed sale of a player-owned private if a buyer is found;
-  this is optional, not mandatory.
-- Recompute the cheapest train and available offers after each sale.
+- The president supplies ordered sale batches. Each batch names one corporation
+  and exact certificate IDs.
+- Every certificate in one batch pays the market price before that batch's
+  downward movement; the next corporation batch uses its then-current price.
+- Apply normal Pool 50% limits and all normal certificate-sale restrictions.
+- Reject a batch that changes presidency of the trainless corporation.
+- Apply presidency changes in other corporations during simulation, including
+  their effect on any contemplated train seller.
+- Stop accepting batches once the cheapest required purchase is fundable. The
+  final indivisible certificate may overraise; excess belongs to the president.
+- A player-owned private may be included only after a serialized proposal names
+  another player buyer and exact mutually agreed price, the buyer has cash, and
+  the buyer consents. An out-of-turn corporation cannot buy it. Such a sale is
+  optional and is never assumed for bankruptcy proof.
+- A willing corporation train sale may satisfy the requirement. If president
+  money contributes, its price cannot exceed face value.
 
-The engine must not automatically liquidate a strategy on the player's behalf.
-Selectors expose legal sale sets and the current shortfall.
+The pure liquidation simulator revalidates the plan after every batch. The same
+simulator drives selectors, previews, purchase execution, bankruptcy proof, and
+tests. An invalid final batch, stale certificate, changed actor, unavailable
+train, illegal Pool total, or unaffordable result rejects the whole command with
+no partial mutation.
+
+If simulated presidency change gives a contemplated selling corporation a new
+president, that president may cancel. Cancellation restores the stored
+beginning-of-train-step checkpoint, exactly as PDF section 6.6.3 requires.
 
 ### 16.6 Bankruptcy
 
-If the president cannot raise enough after every stock sale they are legally
-allowed to make, the president is bankrupt. The game ends immediately. No later
-corporation operates and no pending action completes.
+`declareBankruptcy` is accepted only after an exhaustive bounded search proves
+that no legal ordered stock-sale sequence, combined with corporation and
+president spendable cash, can buy the cheapest Bank/depot or open-market train.
+Unconsented private or corporation-train deals are optional and do not block the
+proof. The submitted liquidation must be maximal: after it, no additional legal
+stock sale remains. If any legal funding sequence exists, reject bankruptcy and
+return legal alternatives.
+
+On acceptance, commit the maximal liquidation and end the game immediately. No
+later corporation operates and no pending action completes.
 
 The bankrupt player's final value is the market value of remaining stock they
 could not sell. Other players receive ordinary final scoring.
 
 ## 17. Bank exhaustion and final scoring
 
-Bank payments use the existing obligation mechanism when cash is insufficient.
-Obligations are public, non-spendable claims added to final value.
+The first payment that would take Bank cash to zero or below permanently latches
+an end schedule. It never disappears if the Bank later receives money. To match
+paper accounting in saved rule 25 and PDF section 7.0, every Bank payment is
+still credited in full as spendable player cash or corporation treasury. Bank
+cash may therefore become negative, representing the paper ledger; this keeps
+financial conservation exact and cannot create a false inability to buy track,
+stations, or trains.
 
 - If Bank exhaustion occurs in a Stock Round, finish that Stock Round and the
   complete following Operating Round set.
 - If it occurs during an Operating Round set, finish the current and all
   remaining Operating Rounds in that already-latched set.
 - End immediately before the next Stock Round would start.
-- Continue recording unpaid capitalization, private income, dividends, and
-  other Bank payments as obligations without creating spendable cash.
+- Continue all incoming and outgoing Bank transactions normally. Negative Bank
+  cash is public audit state, not a non-spendable player claim.
 
 Final player value is:
 
 - personal cash;
-- unpaid obligations owed to that player;
 - stock shares times current market price;
 - face value of open player-owned privates.
 
@@ -1440,7 +1474,8 @@ Run the existing financial invariants plus:
     actor except during a typed pending decision.
 18. A resolved run uses owned trains, legal non-overlapping routes, and maximum
     revenue.
-19. Revenue and dividend transfers conserve actual cash plus obligations.
+19. Revenue and dividend transfers conserve total ledger value even when Bank
+    cash is negative after the end trigger.
 20. Completed-game state accepts no gameplay command.
 21. Definition ID/version resolves exactly, and all mutable entity IDs exist in
     that resolved definition.
@@ -1639,7 +1674,8 @@ The current prototype is not an acceptable second source.
 - Dividend right/up market movement and withhold left/down movement.
 - Bottom stacking at destination.
 - Zero/no-route no-dividend movement.
-- Bank exhaustion and obligations during payout.
+- Bank exhaustion during capitalization, private income, stock sales, and
+  dividends, with full spendability and a permanent end deadline.
 
 ### 24.6 Train and phase scenarios
 
@@ -1733,7 +1769,7 @@ large UI rewrite.
 ### Gate 6 — Emergency financing and completed game
 
 - Implement mandatory trains, president contribution, forced sales, bankruptcy,
-  Bank-break completion, obligations, and final scoring.
+  Bank-break completion, negative-Bank ledger accounting, and final scoring.
 
 ### Gate 7 — Persistence, cleanup, and verification
 
